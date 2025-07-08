@@ -7,7 +7,6 @@ import numpy as np
 import tensorflow as tf
 from typing import Optional, Sequence, Union
 from tqdm import trange
-from .dataset import Dataset
 dtype = tf.float32
 
 
@@ -681,7 +680,7 @@ class cosmopower_PCAplusNN(tf.keras.Model):
 
         return accumulated_loss
 
-    def train(self, training_data: Sequence[Dataset],
+    def train(self, training_data: Sequence,
               filename_saved_model: str, validation_split: float = 0.1,
               learning_rates: Sequence[float] = [1e-2, 1e-3, 1e-4, 1e-5, 1e-6],
               batch_sizes: Union[int, Sequence[int]] = 1000,

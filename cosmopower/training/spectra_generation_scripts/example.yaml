@@ -1,0 +1,45 @@
+network_name: example
+path: example
+
+emulated_code:
+  name: camb
+  inputs: [ombh2, omch2, H0, ns, As]
+  extra_args:
+    kmax: 10.0
+    WantCls: False
+    NonLinearModel.Min_kh_nonlinear: 5.0e-5
+    NonLinearModel.halofit_version: "mead2020"
+
+samples:
+  Ntraining: 400000
+  
+  parameters:
+    ombh2: [0.015, 0.030]
+    omch2: [0.05, 0.25]
+    h: [0.6, 0.9]
+    ns: [0.8, 1.1]
+    logA: [1.6,3.9]
+    z: [0.0, 5.0]
+    
+    # Add in some translations for some parameters.
+    H0: "lambda h: h * 100.0"
+    As: "lambda logA: 1.e-10 * np.exp(logA)"
+
+networks:
+  - quantity: "Pk/lin"
+    type: NN
+    inputs: [ombh2, omch2, logA, ns, h, z]
+    log: True
+    modes:
+      label: k
+      range: [1.e-4, 10.0]
+      spacing: log
+      steps: 1000
+    n_traits:
+      n_hidden: [ 512, 512, 512, 512 ]
+    training:
+      validation_split: 0.1
+      learning_rates: [ 1.e-2, 1.e-3, 1.e-4, 1.e-5, 1.e-6, 1.e-7 ]
+      batch_sizes: [ 1000, 2000, 5000, 10000, 20000, 50000 ]
+      patience_values: 100
+      max_epochs: 1000

@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import yaml
+import h5py
 from typing import Any, Optional, Sequence
 
 from .cosmopower_PCA import cosmopower_PCA
@@ -56,6 +57,33 @@ class YAMLParser:
             else:
                 self._theory_computed_parameters.append(param)
 
+    def setup_path(self, exist_ok=True, force_clean=False) -> None:
+        os.makedirs(self.path, exist_ok = True)
+        
+        if not exist_ok:
+            with os.scandir(self.path) as sd:
+                for entry in sd:
+                    if entry.is_file() and not force_clean:
+                        raise IOError("Non-empty path.")
+        
+        os.makedirs(os.path.join(self.path, "networks"), exist_ok=True)
+        
+        with os.scandir(os.path.join(self.path, "networks")) as sd:
+            for entry in sd:
+                if entry.is_file() and not force_clean:
+                    raise IOError("Non-empty networks path.")
+                elif force_clean:
+                    os.remove(entry)
+        
+        os.makedirs(os.path.join(self.path, "spectra"), exist_ok=True)
+        
+        with os.scandir(os.path.join(self.path, "spectra")) as sd:
+            for entry in sd:
+                if entry.is_file() and not force_clean:
+                    raise IOError("Non-empty spectra path.")
+                elif force_clean:
+                    os.remove(entry)
+
     def initialize_networks(self) -> dict:
         """
         This function should setup the (untrained) networks and return a
@@ -66,7 +94,6 @@ class YAMLParser:
         for quantity in self.quantities:
             network_type = self.network_type(quantity)
 
-            # TODO: implement PCA+NN instantization.
             if network_type == "PCAplusNN":
                 continue
 
@@ -312,6 +339,27 @@ class YAMLParser:
         """
         return self._derived_parameters.copy()
 
+    def add_derived_parameters(self, parameters: dict) -> dict:
+        """
+        Given a set of parameters, compute all derived parameters and add them
+        to this set.
+        """
+        for param in self.derived_parameters:
+            if param in parameters:
+                continue
+
+            val = self.parameter_value(param)
+
+            if type(val) is str:
+                lambda_function = eval(val)
+                inputs = [parameters[i]
+                          for i in lambda_function.__code__.co_varnames]
+                parameters[param] = lambda_function(*inputs)
+            elif type(val) is float:
+                parameters[param] = np.tile(val, (self.nsamples,))
+
+        return parameters
+
     @property
     def computed_parameters(self) -> Sequence[str]:
         """
@@ -384,3 +432,159 @@ class YAMLParser:
     @property
     def max_filesize(self) -> int:
         return self._max_filesize
+
+    def new_lhc(self) -> dict:
+        """
+        Locate the parameter ranges in the parser and get the latin hypercube
+        samples.
+        """
+        import pyDOE
+
+        ranges = {}
+
+        for param in self.input_parameters:
+            xmin, xmax = self.parameter_value(param)
+            ranges[param] = np.linspace(xmin, xmax, self.nsamples)
+
+        lhc = pyDOE.lhs(len(self.input_parameters), self.nsamples,
+                        criterion=None)
+        idx = (lhc * self.nsamples).astype(int)
+
+        lhc = {par: ranges[par][idx[:, i]]
+               for i, par in enumerate(self.input_parameters)}
+
+        lhc = self.add_derived_parameters(lhc)
+        
+        return lhc
+
+    def augment_lhc(self, lhc: dict) -> dict:
+        """
+        Augment an existing LHC so that it matches the prescription of the parser
+        parameters. In the current implementation, the number of samples is
+        recursively doubled by adding a second LHC on top of the given LHC, that
+        interlaces the existing sample points.
+        """
+        import pyDOE
+
+        p = list(lhc.keys())[0]
+        n = lhc[p].shape[0]
+
+        while n < self.nsamples:
+            lhc_new = {}
+            reparse = {}
+
+            for param in (self.sampled_parameters + self.input_parameters):
+                val = self.parameter_value(param)
+
+                if type(val) is tuple:
+                    oldrange = np.sort(lhc[param])
+                    lhc_new[param] = (oldrange[1:] + oldrange[:-1]) / 2.0
+                elif type(val) is float:
+                    lhc_new[param] = np.tile(val, (n - 1,))
+                else:
+                    reparse[param] = val
+
+            lhc_idx = pyDOE.lhs(len(self.sampled_parameters), n - 1,
+                                criterion=None)
+            lhc_idx = (lhc_idx * (n - 1)).astype(int)
+
+            lhc_new = {par: lhc_new[par][lhc_idx[:, i]]
+                       for i, par in enumerate(self.input_parameters)}
+
+            lhc_new = self.add_derived_parameters(lhc_new)
+
+            for param in lhc:
+                lhc[param] = np.concatenate((lhc[param], lhc_new[param]))
+
+            n += (n - 1)
+
+        return lhc
+    
+    def get_parameter_samples(self, force_new: bool = False,
+                              allow_augmentation: bool = True) -> dict:
+        """
+        Obtain the training samples for this parser.
+        If a file exists with the correct settings, then this file will be
+        loaded and its contents returned. If a file exists but not enough
+        samples are given, it will augment the dataset (if
+        `allow_augmentation == True`) and return the result.
+        """
+        filename = os.path.join(self.path, "spectra", "parameters.hdf5")
+        
+        samples = {}
+        generate_new = False
+        
+        if not force_new:
+            try:
+                fp = h5py.File(filename, "r")
+                header = fp.require_group("header")
+                existing = int(header.require_dataset("nsamples", (1,),
+                                                      dtype=int,
+                                                      data=0)[()])
+                
+                sampled_parameters = \
+                header.require_dataset("sampled_parameters",
+                                       (len(self.sampled_parameters),),
+                                       dtype=h5py.special_dtype(vlen=str))
+                
+                if existing > 0:
+                    assert len(sampled_parameters) == \
+                           len(self.sampled_parameters)
+                    
+                    for i, p in enumerate(self.sampled_parameters):
+                        assert sampled_parameters[i].decode() == str(p)
+                    
+                    data = fp["data"]
+                    
+                    samples = {sampled_parameters[i].decode(): data[:,i]
+                               for i, _ in enumerate(self.sampled_parameters)}
+                    
+                    samples = self.add_derived_parameters(samples)
+                    
+                    requested = self.nsamples
+                    if requested > existing:
+                        if not allow_augmentation:
+                            samples = {}
+                            generate_new = True
+                        else:
+                            samples = self.augment_lhc(samples)
+                fp.close()
+            except FileNotFoundError as e:
+                generate_new = True
+            except Exception as e:
+                pass
+        
+        if generate_new:
+            samples = self.new_lhc()
+            samples = self.add_derived_parameters(samples)
+
+        return samples
+
+    def save_samples_to_file(self, samples: dict) -> None:
+        filename = os.path.join(self.path, "spectra", "parameters.hdf5")
+
+        try:
+            fp = h5py.File(filename, "w")
+            header = fp.require_group("header")
+            sampled_parameters = \
+                header.require_dataset("sampled_parameters",
+                                       (len(self.sampled_parameters),),
+                                       dtype=h5py.special_dtype(vlen=str))
+            
+            for i, p in enumerate(self.sampled_parameters):
+                sampled_parameters[i] = str(p)
+            
+            data = fp.require_dataset("data", (self.nsamples,
+                                               len(self.sampled_parameters)),
+                                      dtype=float,
+                                      maxshape=(None,
+                                                len(self.sampled_parameters)))
+
+            for i, p in enumerate(self.sampled_parameters):
+                data[:,i] = samples[p.decode()]
+
+            header["nsamples"][()] = data.shape[0]
+            
+            fp.close()
+        except Exception as e:
+            pass
