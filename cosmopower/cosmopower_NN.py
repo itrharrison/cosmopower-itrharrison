@@ -232,6 +232,51 @@ class cosmopower_NN(tf.keras.Model):
         """
         return tf.pow(10.0, self.predictions_tf(parameters_tensor))
 
+    # tensor rescale predictions
+    @tf.function
+    def rescaled_predictions_tf(self, 
+                           parameters_tensor
+                           ):
+        r"""
+        10^predictions given tensor of input parameters,
+        fully implemented in TensorFlow. It raises 10 to the output
+        of ``predictions_tf``
+
+        Parameters:
+            parameters_tensor (Tensor):
+                input parameters
+
+        Returns:
+            Tensor:
+                output predictions * scaling_division + scaling_subtraction
+        """
+        return self.postprocessing_tf(self.predictions_tf(parameters_tensor),self.processing_vectors_tf)
+       
+    # tensor 10.**rescaled predictions
+    @tf.function
+    def ten_to_rescaled_predictions_tf(self, 
+                           parameters_tensor
+                           ):
+        r"""
+        10^predictions given tensor of input parameters,
+        fully implemented in TensorFlow. It raises 10 to the output
+        of ``rescale_predictions_tf``
+
+        Parameters:
+            parameters_tensor (Tensor):
+                input parameters
+
+        Returns:
+            Tensor:
+                10^output rescaled predictions
+        """
+        return tf.pow(10., self.rescaled_predictions_tf(parameters_tensor)) 
+
+
+
+# ============= SAVE/LOAD model =============
+
+    # save network parameters to Numpy arrays
     def update_emulator_parameters(self):
         r"""
         Update emulator parameters before saving them
@@ -249,6 +294,7 @@ class cosmopower_NN(tf.keras.Model):
         self.parameters_std_ = self.parameters_std.numpy()
         self.features_mean_ = self.features_mean.numpy()
         self.features_std_ = self.features_std.numpy()
+        
 
     def save(self, filename: str) -> None:
         r"""
@@ -468,6 +514,50 @@ class cosmopower_NN(tf.keras.Model):
         """
         return 10.0 ** self.predictions_np(parameters_dict)
 
+
+    # Numpy array 10.**predictions
+    def rescaled_predictions_np(self,
+                            parameters_dict
+                            ):
+        r"""
+        resclaing of the predictions given input parameters collected in a dict.
+        Fully implemented in Numpy. It raises 10 to the output
+        from ``forward_pass_np``
+
+        Parameters:
+            parameters_dict (dict [numpy.ndarray]):
+                dictionary of (arrays of) parameters
+
+        Returns:
+            numpy.ndarray:
+                output predictions * scaling_division + scaling_subtraction
+        """
+        
+        return self.postprocessing_np(self.predictions_np(parameters_dict),self.processing_vectors_np)
+
+    
+    # Numpy array 10.**rescaled predictions
+    def ten_to_rescaled_predictions_np(self,
+                            parameters_dict
+                            ):
+        r"""
+        10^predictions given input parameters collected in a dict.
+        Fully implemented in Numpy. It raises 10 to the output
+        from ``forward_pass_np``
+
+        Parameters:
+            parameters_dict (dict [numpy.ndarray]):
+                dictionary of (arrays of) parameters
+
+        Returns:
+            numpy.ndarray:
+                10^output rescaled predictions
+        """
+        return 10.**self.rescaled_predictions_np(parameters_dict)
+
+
+    ### Infrastructure for network training ###
+
     @tf.function
     def compute_loss(self, training_parameters: tf.Tensor,
                      training_features: tf.Tensor) -> tf.Tensor:
@@ -612,6 +702,7 @@ class cosmopower_NN(tf.keras.Model):
 
         return accumulated_loss
 
+      
     def train(self, training_data: Sequence[Dataset],
               filename_saved_model: str, validation_split: float = 0.1,
               learning_rates: Sequence[float] = [1e-2, 1e-3, 1e-4, 1e-5, 1e-6],

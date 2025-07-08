@@ -27,7 +27,7 @@
 
 In cosmology, ``CosmoPower`` aims to become a fully _differentiable_ library for cosmological analyses. Currently, ``CosmoPower`` provides neural network emulators of matter and Cosmic Microwave Background power spectra. These emulators can be used to replace Boltzmann codes such as [CAMB](https://github.com/cmbant/CAMB) or [CLASS](https://github.com/lesgourg/class_public) in cosmological inference pipelines, to source the power spectra needed for two-point statistics analyses. This provides orders-of-magnitude acceleration to the inference pipeline and integrates naturally with efficient techniques for sampling very high-dimensional parameter spaces. The power spectra emulators implemented in `CosmoPower`, and first presented in its [release paper](https://arxiv.org/abs/2106.03846), have been applied to the analysis of real cosmological data from  experiments, as well as having been tested against the accuracy requirements for the analysis of next-generation cosmological surveys.
 
-``CosmoPower`` is written entirely in [Python](https://www.python.org/). Neural networks are implemented using the [TensorFlow](https://www.tensorflow.org/) library.
+``CosmoPower`` is written entirely in [Python](https://www.python.org/). Neural networks are implemented using the [TensorFlow](https://www.tensorflow.org/) library. Please check out [COSMOPOWER-JAX](https://github.com/dpiras/cosmopower-jax) for a [JAX](https://github.com/google/jax)-based version.
 
 
 # Documentation
@@ -40,13 +40,19 @@ Comprehensive documentation is available [here](https://alessiospuriomancini.git
 We recommend installing ``CosmoPower`` within a [Conda](https://docs.conda.io/projects/conda/en/latest/index.html) virtual environment. 
 For example, to create and activate an environment called ``cp_env``, use:
 
-    conda create -n cp_env python=3.7 pip && conda activate cp_env
+    conda create -n cp_env python=3.11 pip && conda activate cp_env
 
 Once inside the environment, you can install ``CosmoPower``:
 
-- **from PyPI**
+- **from PyPI or conda-forge**
 
         pip install cosmopower
+
+    or
+
+        conda install -c conda-forge cosmopower
+
+    (kudos to [@joezuntz](https://github.com/joezuntz) for the conda-forge package).
 
     To test the installation, you can use
 
@@ -77,11 +83,11 @@ CosmoPower currently provides two ways to emulate power spectra, implemented in 
  <tr>
     <td>a neural network mapping cosmological parameters directly to (log)-power spectra
 <div align="center">
-<img src='https://github.com/alessiospuriomancini/cosmopower/blob/main/docs/static/nn_scheme-1.png' width="800" height="300">
+<img src='https://github.com/alessiospuriomancini/cosmopower/blob/main/docs/static/nn_scheme-1.png' height="200" style="width: auto;">
 </div>
 </td>
     <td>a neural network mapping cosmological parameters to coefficients of a Principal Component Analysis (PCA) of the (log)-power spectra<div align="center">
-<img src='https://github.com/alessiospuriomancini/cosmopower/blob/main/docs/static/pca_nn_scheme-1.png' width="700" height="300">
+<img src='https://github.com/alessiospuriomancini/cosmopower/blob/main/docs/static/pca_nn_scheme-1.png' height="200" style="width: auto;">
 </div>
 </td>
  </tr>
@@ -160,7 +166,7 @@ The [training_notebooks](https://github.com/alessiospuriomancini/cosmopower/blob
 
 - [train ``cosmopower_PCAplusNN``](https://github.com/alessiospuriomancini/cosmopower/blob/main/notebooks/training_notebooks/cosmopower_PCAplusNN_CMB_training.ipynb): [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1G8vABcUk9yztXYDx8bDFaNhJrtVIA5ei?usp=sharing)
 
-These notebooks implement emulation of CMB temperature (TT) and lensing potential (<img src="https://render.githubusercontent.com/render/math?math=\phi \phi">)
+These notebooks implement emulation of CMB temperature (TT) and lensing potential (<img src="https://latex.codecogs.com/gif.latex?\phi\phi">)
  power spectra as practical examples - the procedure is completely analogous for the matter power spectrum.
 
 
@@ -206,7 +212,7 @@ If you use ``CosmoPower`` at any point in your work please cite its [release pap
              pages={1771–1788}
              }
 
-If you use a specific likelihood or trained model then in addition to the [release paper](https://arxiv.org/abs/2106.03846) please _also_ cite their relevant papers (always listed in the corresponding directory).
+If you use a specific likelihood or trained model then in addition to the [release paper](https://arxiv.org/abs/2106.03846) please _also_ cite their relevant papers (always listed in the corresponding directory). If you use the custom activation function implemented in the code please also cite [Alsing et al.(2020)](https://doi.org/10.3847/1538-4365/ab917f).
 
 
 # License

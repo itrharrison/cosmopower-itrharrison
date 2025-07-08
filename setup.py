@@ -22,7 +22,7 @@ long_description = read_file("README.md")
 if 'arm' in os.uname().machine:
     tensorflow = 'tensorflow-metal'
 else:
-    tensorflow = 'tensorflow>2.0'
+    tensorflow = 'tensorflow<2.14'
 
 setup(classifiers=['Operating System :: OS Independent',
                    'Intended Audience :: Developers',
@@ -34,7 +34,7 @@ setup(classifiers=['Operating System :: OS Independent',
       long_description_content_type = "text/markdown",
       long_description = long_description,
       author='Alessio Spurio Mancini',
-      author_email='a.spuriomancini@ucl.ac.uk',
+      author_email='alessio.spuriomancini@rhul.ac.uk',
       license='GNU General Public License v3 (GPLv3)',
       url='https://github.com/alessiospuriomancini/cosmopower',
       packages=find_packages(),
