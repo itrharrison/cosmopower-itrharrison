@@ -795,6 +795,8 @@ class cosmopower_NN(tf.keras.Model):
                 training_features = np.concatenate((training_features,
                                                     features))
 
+        print(f"Found a total of {training_features.shape[0]} example spectra.")
+
         self.parameters_mean = np.nanmean(training_parameters, axis=0)
         self.parameters_std = np.nanstd(training_parameters, axis=0)
         self.features_mean = np.nanmean(training_features, axis=0)
@@ -843,8 +845,8 @@ class cosmopower_NN(tf.keras.Model):
             validation_features = training_features[~split]
 
             # set up training loss
-            validation_loss = [np.infty]
-            best_loss = np.infty
+            validation_loss = [np.inf]
+            best_loss = np.inf
             early_stopping_counter = 0
 
             # loop over epochs

@@ -18,19 +18,20 @@ def initialize(parser: YAMLParser, extra_args: dict = {}) -> dict:
     import camb
     from packaging.version import parse as vparse
 
-    version_desired = vparse(parser.boltzmann_version)
-    version_received = vparse(camb.__version__)
+    if parser.boltzmann_version:
+        version_desired = vparse(parser.boltzmann_version)
+        version_received = vparse(camb.__version__)
 
-    if version_desired != version_received:
-        if version_desired.major == version_received.major and \
-           version_desired.minor == version_received.minor:
-            warnings.warn(f"Different camb version: camb version \
-                            {version_desired} was requested, but you imported \
-                            version {version_received}.")
-        else:
-            raise ImportError(f"Incompatible camb version: camb version \
-                                {version_desired} was requested, but you \
-                                imported version {version_received}.")
+        if version_desired != version_received:
+            if version_desired.major == version_received.major and \
+               version_desired.minor == version_received.minor:
+                warnings.warn(f"Different camb version: camb version \
+                                {version_desired} was requested, but you imported \
+                                version {version_received}.")
+            else:
+                raise ImportError(f"Incompatible camb version: camb version \
+                                    {version_desired} was requested, but you \
+                                    imported version {version_received}.")
 
     res = {}
 

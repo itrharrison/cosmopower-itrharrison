@@ -5,13 +5,13 @@ emulated_code:
   name: camb
   inputs: [ombh2, omch2, H0, ns, As]
   extra_args:
-    kmax: 10.0
+    kmax: 20.0
     WantCls: False
     NonLinearModel.Min_kh_nonlinear: 5.0e-5
     NonLinearModel.halofit_version: "mead2020"
 
 samples:
-  Ntraining: 400000
+  Ntraining: 1000
   
   parameters:
     ombh2: [0.015, 0.030]
@@ -36,10 +36,10 @@ networks:
       spacing: log
       steps: 1000
     n_traits:
-      n_hidden: [ 512, 512, 512, 512 ]
+      n_hidden: [512, 512, 512]
     training:
       validation_split: 0.1
-      learning_rates: [ 1.e-2, 1.e-3, 1.e-4, 1.e-5, 1.e-6, 1.e-7 ]
-      batch_sizes: [ 1000, 2000, 5000, 10000, 20000, 50000 ]
+      learning_rates: [1.e-2, 1.e-3, 1.e-4]
+      batch_sizes: [100, 200, 500]
       patience_values: 100
       max_epochs: 1000

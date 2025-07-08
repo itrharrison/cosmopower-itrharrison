@@ -194,7 +194,7 @@ class YAMLParser:
         return self._boltzmann_code.get("path", None)
 
     @property
-    def boltzmann_version(self) -> str:
+    def boltzmann_version(self) -> Optional[str]:
         """
         The version of the used boltzmann code.
         """
@@ -499,7 +499,7 @@ class YAMLParser:
             n += (n - 1)
 
         return lhc
-    
+
     def get_parameter_samples(self, force_new: bool = False,
                               allow_augmentation: bool = True) -> dict:
         """
@@ -510,23 +510,21 @@ class YAMLParser:
         `allow_augmentation == True`) and return the result.
         """
         filename = os.path.join(self.path, "spectra", "parameters.hdf5")
-        
+
         samples = {}
         generate_new = False
-        
+
         if not force_new:
             try:
                 fp = h5py.File(filename, "r")
                 header = fp.require_group("header")
-                existing = int(header.require_dataset("nsamples", (1,),
-                                                      dtype=int,
-                                                      data=0)[()])
-                
+                existing = header["nsamples"][()]
+
                 sampled_parameters = \
                 header.require_dataset("sampled_parameters",
                                        (len(self.sampled_parameters),),
                                        dtype=h5py.special_dtype(vlen=str))
-                
+
                 if existing > 0:
                     assert len(sampled_parameters) == \
                            len(self.sampled_parameters)
@@ -550,9 +548,8 @@ class YAMLParser:
                             samples = self.augment_lhc(samples)
                 fp.close()
             except FileNotFoundError as e:
+                print("File not found. Making new dataset.")
                 generate_new = True
-            except Exception as e:
-                pass
         
         if generate_new:
             samples = self.new_lhc()
@@ -563,28 +560,25 @@ class YAMLParser:
     def save_samples_to_file(self, samples: dict) -> None:
         filename = os.path.join(self.path, "spectra", "parameters.hdf5")
 
-        try:
-            fp = h5py.File(filename, "w")
-            header = fp.require_group("header")
-            sampled_parameters = \
-                header.require_dataset("sampled_parameters",
-                                       (len(self.sampled_parameters),),
-                                       dtype=h5py.special_dtype(vlen=str))
-            
-            for i, p in enumerate(self.sampled_parameters):
-                sampled_parameters[i] = str(p)
-            
-            data = fp.require_dataset("data", (self.nsamples,
-                                               len(self.sampled_parameters)),
-                                      dtype=float,
-                                      maxshape=(None,
-                                                len(self.sampled_parameters)))
+        fp = h5py.File(filename, "w")
+        header = fp.require_group("header")
+        sampled_parameters = \
+            header.require_dataset("sampled_parameters",
+                                   (len(self.sampled_parameters),),
+                                   dtype=h5py.special_dtype(vlen=str))
+        
+        for i, p in enumerate(self.sampled_parameters):
+            sampled_parameters[i] = str(p)
+        
+        data = fp.require_dataset("data", (self.nsamples,
+                                           len(self.sampled_parameters)),
+                                  dtype=float,
+                                  maxshape=(None,
+                                            len(self.sampled_parameters)))
 
-            for i, p in enumerate(self.sampled_parameters):
-                data[:,i] = samples[p.decode()]
+        for i, p in enumerate(self.sampled_parameters):
+            data[:,i] = samples[p]
 
-            header["nsamples"][()] = data.shape[0]
-            
-            fp.close()
-        except Exception as e:
-            pass
+        header["nsamples"] = data.shape[0]
+
+        fp.close()
