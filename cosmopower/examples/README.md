@@ -6,4 +6,6 @@ This folder contains scripts to:
 
 - produce power spectra at each node of the Latin Hypercube ([2_create_spectra.py](https://github.com/alessiospuriomancini/cosmopower/blob/main/cosmopower/training/spectra_generation_scripts/2_create_spectra.py));
 
-- re-arrange ([3_postprocess.py](https://github.com/alessiospuriomancini/cosmopower/blob/main/cosmopower/training/spectra_generation_scripts/3_postprocess.)) the output files in a format compatible with that required by the training notebooks in the [training_notebooks](https://github.com/alessiospuriomancini/cosmopower/blob/main/notebooks/training_notebooks) folder.
+- train the emulator ([3_train_emulator.py](https://github.com/alessiospuriomancini/cosmopower/blob/main/cosmopower/training/spectra_generation_scripts/3_postprocess.py));
+
+- train a PCA+NN emulator ([3a_train_PCA_emulator.py](https://github.com/alessiospuriomancini/cosmopower/blob/main/cosmopower/training/spectra_generation_scripts/3_postprocess.py)).

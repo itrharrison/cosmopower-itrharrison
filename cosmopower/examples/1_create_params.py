@@ -7,7 +7,8 @@ from cosmopower.parser import YAMLParser
 
 """
 Compare the example.yaml file. It contains a basic overview of a linear P(k,z)
-emulator we want to train from 400,000 example spectra in LCDM parameters.
+emulator we want to train from 4,000 example spectra in LCDM parameters. In
+addition, we generate 500 validation spectra.
 
 The `YAMLParser` object can load this file for us.
 """
@@ -17,8 +18,8 @@ parser.setup_path(force_clean=True)
 
 print(parser.all_parameters)
 
-lhc = parser.get_parameter_samples()
+samples, validation_samples = parser.get_parameter_samples(return_validation = True)
 
-print(lhc)
+print(samples)
 
-parser.save_samples_to_file(lhc)
+parser.save_samples_to_file(samples, validation_samples)

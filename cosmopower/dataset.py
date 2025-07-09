@@ -63,7 +63,7 @@ class Dataset:
         self.check_open()
 
         # Shrink to fit
-        size = self.size
+        size = len(self)
         self.file["data"]["indices"].resize(size, axis=0)
         self.file["data"]["parameters"].resize(size, axis=0)
         self.file["data"]["spectra"].resize(size, axis=0)
@@ -201,7 +201,7 @@ class Dataset:
 
         return spec
 
-    def read_data(self) -> Tuple[np.ndarray, np.ndarray]:
+    def read_data(self, as_dict: bool = False) -> Tuple[np.ndarray, np.ndarray]:
         """Read the ENTIRE file, returning a (parameters, spectra) tuple of
            numpy arrays of generated spectra."""
         self.check_open()
@@ -209,6 +209,12 @@ class Dataset:
 
         parameters = self.file["data"]["parameters"][entries, :]
         spectra = self.file["data"]["spectra"][entries, :]
+        
+        if as_dict:
+            parameters = {
+                k.decode(): parameters[:,i]
+                for i, k in enumerate(self.file["header"]["parameters"])
+            }
 
         return parameters, spectra
 
@@ -220,6 +226,24 @@ class Dataset:
     def __exit__(self, ex_type, ex_val, ex_tb) -> None:
         """Allows for with-statements with datasets."""
         self.close()
+
+    def __len__(self) -> int:
+        """Check the number of (used) indices in this dataset."""
+        return self.size
+
+    def __getitem__(self, key: Union[int, np.ndarray]) -> np.ndarray:
+        """Get the spectrum associated with a given index."""
+        return self.read_spectra(key)
+
+    def __contains__(self, key: Union[int, np.ndarray]) -> Union[bool, np.ndarray]:
+        """Check whether this dataset contains a certain index."""
+        if type(key) == int:
+            return key in self.indices
+        elif type(key) == np.ndarray:
+            dx = self.indices
+            return np.array([ k in idx for k in key ])
+        else:
+           raise TypeError("Key must be (array of) integer type.")
 
     @property
     def filename(self) -> str:
@@ -268,26 +292,27 @@ class Dataset:
             raise RuntimeError("Not open.")
 
     @property
+    def size(self) -> int:
+        """Count the number of non-empty datapoints in this dataset."""
+        self.check_open()
+        indices = self.file["data"]["indices"][:]
+        indices = indices[indices != -1]
+        return len(indices)
+
+    @property
     def empty_size(self) -> int:
         """Number of empty indices in the file."""
         self.check_open()
-        return self.max_size - self.size
-
-    @property
-    def size(self) -> int:
-        """Number of non-empty indices in the file."""
-        self.check_open()
-        indices = self.file["data"]["indices"][:]
-        return sum(indices != -1)
+        return self.max_size - len(self)
 
     @property
     def is_empty(self) -> bool:
         """Whether there are zero entries in this dataset."""
         self.check_open()
-        return self.size == 0
+        return len(self) == 0
 
     @property
     def is_full(self) -> bool:
         """Whether this dataset is full or not."""
         self.check_open()
-        return self.size == self.max_size
+        return len(self) == self.max_size

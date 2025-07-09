@@ -11,7 +11,8 @@ emulated_code:
     NonLinearModel.halofit_version: "mead2020"
 
 samples:
-  Ntraining: 1000
+  Nvalidation: 100
+  Ntraining: 200
   
   parameters:
     ombh2: [0.015, 0.030]
@@ -38,8 +39,7 @@ networks:
     n_traits:
       n_hidden: [512, 512, 512]
     training:
-      validation_split: 0.1
       learning_rates: [1.e-2, 1.e-3, 1.e-4]
-      batch_sizes: [100, 200, 500]
+      batch_sizes: [10, 20, 50]
       patience_values: 100
       max_epochs: 1000

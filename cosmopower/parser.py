@@ -301,6 +301,13 @@ class YAMLParser:
         The number of (desired) training samples in the network.
         """
         return self._samples.get("Ntraining")
+    
+    @property
+    def nvalidation(self) -> int:
+        """
+        The number of (desired) validation samples in the network.
+        """
+        return self._samples.get("Nvalidation", 0)
 
     def parameter_value(self, param) -> Any:
         """
@@ -444,9 +451,9 @@ class YAMLParser:
 
         for param in self.input_parameters:
             xmin, xmax = self.parameter_value(param)
-            ranges[param] = np.linspace(xmin, xmax, self.nsamples)
+            ranges[param] = np.linspace(xmin, xmax, self.nsamples + self.nvalidation)
 
-        lhc = pyDOE.lhs(len(self.input_parameters), self.nsamples,
+        lhc = pyDOE.lhs(len(self.input_parameters), self.nsamples + self.nvalidation,
                         criterion=None)
         idx = (lhc * self.nsamples).astype(int)
 
@@ -469,7 +476,7 @@ class YAMLParser:
         p = list(lhc.keys())[0]
         n = lhc[p].shape[0]
 
-        while n < self.nsamples:
+        while n < self.nsamples + self.nvalidation:
             lhc_new = {}
             reparse = {}
 
@@ -501,7 +508,8 @@ class YAMLParser:
         return lhc
 
     def get_parameter_samples(self, force_new: bool = False,
-                              allow_augmentation: bool = True) -> dict:
+                              allow_augmentation: bool = True,
+                              return_validation: bool = False) -> dict:
         """
         Obtain the training samples for this parser.
         If a file exists with the correct settings, then this file will be
@@ -512,13 +520,14 @@ class YAMLParser:
         filename = os.path.join(self.path, "spectra", "parameters.hdf5")
 
         samples = {}
+        validation_samples = {}
         generate_new = False
 
         if not force_new:
             try:
                 fp = h5py.File(filename, "r")
                 header = fp.require_group("header")
-                existing = header["nsamples"][()]
+                existing = header["nsamples"][()] + header["nvalidation"][()]
 
                 sampled_parameters = \
                 header.require_dataset("sampled_parameters",
@@ -533,19 +542,29 @@ class YAMLParser:
                         assert sampled_parameters[i].decode() == str(p)
                     
                     data = fp["data"]
+                    vdata = fp["validation"]
                     
                     samples = {sampled_parameters[i].decode(): data[:,i]
                                for i, _ in enumerate(self.sampled_parameters)}
                     
-                    samples = self.add_derived_parameters(samples)
+                    validation_samples = {sampled_parameters[i].decode(): vdata[:,i]
+                               for i, _ in enumerate(self.sampled_parameters)}
                     
-                    requested = self.nsamples
+                    samples = self.add_derived_parameters(samples)
+                    validation_samples = self.add_derived_parameters(validation_samples)
+                    
+                    requested = self.nsamples + self.nvalidation
                     if requested > existing:
                         if not allow_augmentation:
                             samples = {}
+                            validation_samples = {}
                             generate_new = True
                         else:
+                            samples = {p : np.concatenate((samples[p], validation_samples[p])) for p in samples}
                             samples = self.augment_lhc(samples)
+                            
+                            validation_samples = {k: samples[k][self.nsamples:] for k in samples}
+                            samples = {k: samples[k][:self.nsamples] for k in samples}
                 fp.close()
             except FileNotFoundError as e:
                 print("File not found. Making new dataset.")
@@ -554,10 +573,16 @@ class YAMLParser:
         if generate_new:
             samples = self.new_lhc()
             samples = self.add_derived_parameters(samples)
+            
+            validation_samples = {k: samples[k][self.nsamples:] for k in samples}
+            samples = {k: samples[k][:self.nsamples] for k in samples}
+
+        if return_validation:
+            return samples, validation_samples
 
         return samples
 
-    def save_samples_to_file(self, samples: dict) -> None:
+    def save_samples_to_file(self, samples: dict, validation: Optional[dict]) -> None:
         filename = os.path.join(self.path, "spectra", "parameters.hdf5")
 
         fp = h5py.File(filename, "w")
@@ -577,8 +602,21 @@ class YAMLParser:
                                             len(self.sampled_parameters)))
 
         for i, p in enumerate(self.sampled_parameters):
-            data[:,i] = samples[p]
+            data[:,i] = samples[p][:]
 
         header["nsamples"] = data.shape[0]
+
+        if validation:
+            vdata = fp.require_dataset("validation",
+                                       (self.nvalidation,
+                                        len(self.sampled_parameters)),
+                                       dtype=float,
+                                       maxshape=(None,
+                                                 len(self.sampled_parameters)))
+
+            for i, p in enumerate(self.sampled_parameters):
+                vdata[:,i] = validation[p][:]
+
+            header["nvalidation"] = vdata.shape[0]
 
         fp.close()

@@ -57,7 +57,7 @@ class cosmopower_NN(tf.keras.Model):
                  n_hidden: Sequence[int] = [512, 512, 512],
                  restore_filename: Optional[str] = None,
                  trainable: bool = True,
-                 optimizer: Optional[tf.keras.Optimizer] = None,
+                 optimizer: Optional = None,
                  verbose: bool = False, allow_pickle: bool = False) -> None:
         """
         Constructor
@@ -703,7 +703,8 @@ class cosmopower_NN(tf.keras.Model):
 
       
     def train(self, training_data: Sequence,
-              filename_saved_model: str, validation_split: float = 0.1,
+              filename_saved_model: str, 
+              validation: Union[Sequence,float] = 0.1,
               learning_rates: Sequence[float] = [1e-2, 1e-3, 1e-4, 1e-5, 1e-6],
               batch_sizes: Union[int, Sequence[int]] = 1000,
               gradient_accumulation_steps: Union[int, Sequence[int]] = 1,
@@ -717,8 +718,9 @@ class cosmopower_NN(tf.keras.Model):
                 list of Datasets that contain training data.
             filename_saved_model (str):
                 filename tag where model will be saved
-            validation_split (float):
-                percentage of training data used for validation
+            validation (Sequence or float):
+                if a (list of) Datasets, use these files for validation data.
+                if a float, use part of the training data for validation.
             learning_rates (list [float]):
                 learning rates for each step of learning schedule
             batch_sizes (list [int]):
@@ -731,6 +733,8 @@ class cosmopower_NN(tf.keras.Model):
             max_epochs (list [int]):
                 maximum number of epochs for each step of learning schedule
         """
+        from .dataset import Dataset
+        
         n_iter = len(learning_rates)
         if type(batch_sizes) is not list:
             batch_sizes = n_iter * [batch_sizes]
@@ -752,8 +756,6 @@ class cosmopower_NN(tf.keras.Model):
         # training start info, if verbose
         if self.verbose:
             multiline_str = "Starting cosmopower_NN training, \n" \
-                            f"using {int(100*validation_split)} per cent of " \
-                            "training samples for validation. \n" \
                             f"Performing {len(learning_rates)} learning " \
                             "steps, with \n" \
                             f"{list(learning_rates)} learning rates \n" \
@@ -768,8 +770,8 @@ class cosmopower_NN(tf.keras.Model):
         training_features = None
 
         progress_file = open(filename_saved_model + ".progress", "w")
-        progress_file.write("# Learning step\tLearning rate\tBatch size\t\
-                             Epoch\tValidation loss\tBest loss\n")
+        progress_file.write("# Learning step\tLearning rate\tBatch size\t" \
+                            "Epoch\tValidation loss\tBest loss\n")
         progress_file.flush()
 
         self.parameters_mean = None
@@ -814,35 +816,77 @@ class cosmopower_NN(tf.keras.Model):
         self.features_std = tf.constant(self.features_std, dtype=dtype,
                                         name="features_std")
 
-        # training/validation split
-        n_samples = training_parameters.shape[0]
-        n_validation = int(n_samples * validation_split)
-        n_training = int(n_samples) - n_validation
+        if type(validation) == float:
+            # training/validation split
+            n_samples = training_parameters.shape[0]
+            n_validation = int(n_samples * validation)
+            n_training = int(n_samples) - n_validation
+            validation_split = True
 
-        training_parameters = tf.convert_to_tensor(training_parameters,
-                                                   dtype=dtype)
-        training_features = tf.convert_to_tensor(training_features,
-                                                 dtype=dtype)
+            training_parameters = tf.convert_to_tensor(training_parameters,
+                                                       dtype=dtype)
+            training_features = tf.convert_to_tensor(training_features,
+                                                     dtype=dtype)
+            
+            print(f"Will split each epoch into {n_training} training, " \
+                  f"and {n_validation} validation samples.")
+        elif type(validation) == list or type(validation) == Dataset:
+            if type(validation) == Dataset:
+                validation = [validation]
+
+            n_samples = training_parameters.shape[0]
+            n_training = int(n_samples)
+
+            validation_parameters = None
+            validation_features = None
+            validation_split = False
+
+            for dataset in validation:
+                with dataset:
+                    parameters, features = dataset.read_data()
+
+                    m = ~np.logical_or(np.any(np.isnan(parameters), axis=1),
+                                       np.any(np.isnan(features), axis=1))
+                    parameters = parameters[m, :]
+                    features = features[m, :]
+
+                    if validation_parameters is None:
+                        validation_parameters = parameters
+                        validation_features = features
+                    else:
+                        validation_parameters = np.concatenate((validation_parameters,
+                                                                parameters))
+                        validation_features = np.concatenate((validation_features,
+                                                              features))
+            
+            print(f"Found a total of {validation_features.shape[0]} "\
+                   "validation spectra.")
 
         # train using cooling/heating schedule for lr/batch-size
+        n = 0
         for i in range(len(learning_rates)):
 
-            print(f"learning rate = {learning_rates[i]}, \
-                    batch size = {batch_sizes[i]}")
+            print(f"learning rate = {learning_rates[i]}, " \
+                  f"batch size = {batch_sizes[i]}")
 
             # set learning rate
             self.optimizer.lr = learning_rates[i]
 
-            # Split the data into a training and validation dataset,
-            # and batch them.
-            split = tf.random.shuffle([True] * n_training
-                                      + [False] * n_validation)
+            if validation_split:
+                # Split the data into a training and validation dataset,
+                # and batch them.
+                split = tf.random.shuffle([True] * n_training
+                                          + [False] * n_validation)
 
-            training_data = tf.data.Dataset.from_tensor_slices(
-                (training_parameters[split], training_features[split])
-            ).shuffle(n_training).batch(batch_sizes[i])
-            validation_parameters = training_parameters[~split]
-            validation_features = training_features[~split]
+                training_data = tf.data.Dataset.from_tensor_slices(
+                    (training_parameters[split], training_features[split])
+                ).shuffle(n_training).batch(batch_sizes[i])
+                validation_parameters = training_parameters[~split]
+                validation_features = training_features[~split]
+            else:
+                training_data = tf.data.Dataset.from_tensor_slices(
+                    (training_parameters, training_features)
+                ).shuffle(n_training).batch(batch_sizes[i])
 
             # set up training loss
             validation_loss = [np.inf]
@@ -880,10 +924,11 @@ class cosmopower_NN(tf.keras.Model):
                     # update the progressbar
                     t.set_postfix(loss=vloss, stuck=early_stopping_counter)
 
-                    progress_file.write(f"{i}\t{learning_rates[i]:e}\t\
-                                          {batch_sizes[i]:d}\t{epoch:d}\t\
-                                          {vloss:f}\t{best_loss:f}\n")
+                    progress_file.write(f"{n:6d}\t{learning_rates[i]:e}\t" \
+                                        f"{batch_sizes[i]:d}\t{epoch:d}\t" \
+                                        f"{vloss:e}\t{best_loss:e}\n")
                     progress_file.flush()
+                    n += 1
 
                     if early_stopping_counter >= patience_values[i]:
                         self.update_emulator_parameters()
@@ -893,11 +938,11 @@ class cosmopower_NN(tf.keras.Model):
                 self.update_emulator_parameters()
                 self.save(filename_saved_model)
                 if early_stopping_counter >= patience_values[i]:
-                    print(f"Model reached early stopping condition. \
-                            Validation loss = {best_loss:f}")
+                    print("Model reached early stopping condition. " \
+                          f"Validation loss = {best_loss:f}")
                 else:
-                    print(f"Reached max number of epochs. \
-                            Validation loss = {best_loss:f}")
+                    print("Reached max number of epochs. " \
+                          f"Validation loss = {best_loss:f}")
                 print("Model saved.")
 
         progress_file.close()

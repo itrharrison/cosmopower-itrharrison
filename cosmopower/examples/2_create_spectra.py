@@ -24,8 +24,9 @@ parser = YAMLParser("example.yaml")
 The function will load the samples from a file (if you've generated one,
 otherwise it can also just create a new one from scratch).
 """
-samples = parser.get_parameter_samples()
+samples, validation_samples = parser.get_parameter_samples(return_validation=True)
 print(samples.keys())
+print(validation_samples)
 
 """
 Cosmopower has a series of built-in interpreters for boltzmann codes. We can
@@ -69,29 +70,54 @@ ax.set_title(f"Linear matter power spectrum at $z = {samples['z'][0]:.3f}$")
 plt.show()
 
 """
-Now we save this to a dataset
+Now we save this to a dataset.
+Datasets are simply large table files that contain the spectra. The Dataset
+wrapper included in Cosmopower helps interface these datasets between the
+hdf5 file format and tensorflow.
 """
 dataset = Dataset(parser, "Pk/lin", "Pk_lin.hdf5")
 network_params = np.array([
     samples[k][0] for k in parser.network_input_parameters("Pk/lin")
 ])
 
-with dataset:
-    dataset.write_data(0, network_params, Pk)
+"""
+If we want to save the spectra as log(Pk) instead of Pk, we need to transform
+them. Because even individual values of P(k) will vary over many orders of
+magnitude, it is better to train the emulator over log(Pk).
+"""
+log = np.log10 if parser.is_log("Pk/lin") else (lambda x: x)
+
+with Dataset(parser, "Pk/lin", "Pk_lin.hdf5") as dataset:
+    if 0 not in dataset:
+        dataset.write_data(0, network_params, log(Pk))
+
+    """
+    Now we just do this many more times!
+    """
+    for n in tqdm(range(1, parser.nsamples)):
+        if n in dataset:
+            continue
+        params = {k: samples[k][n] for k in parser.boltzmann_inputs}
+        if get_boltzmann_spectra(parser, boltzmann_code, params, ["Pk/lin"], extra_args):
+            # This function returns False if the sample is invalid, so it's a
+            # simple check to discard invalid datapoints.
+            network_params = np.array([
+                samples[k][n] for k in parser.network_input_parameters("Pk/lin")
+            ])
+            dataset.write_data(n, network_params, log(boltzmann_code["Pk/lin"]))
 
 """
-Now we just do this many more times!
+Obviously, we have to do the same for the validation dataset.
 """
-dataset.open()
-for n in tqdm(range(1, parser.nsamples)):
-    params = {k: samples[k][n] for k in parser.boltzmann_inputs}
-    if get_boltzmann_spectra(parser, boltzmann_code, params, ["Pk/lin"], extra_args):
-        # This function returns False if the sample is invalid, so it's a
-        # simple check to discard invalid datapoints.
-        network_params = np.array([
-            samples[k][n] for k in parser.network_input_parameters("Pk/lin")
-        ])
-        dataset.write_data(n, network_params, Pk)
-dataset.close()
-
-
+with Dataset(parser, "Pk/lin", "Pk_lin_validation.hdf5") as dataset:
+    for n in tqdm(range(parser.nvalidation)):
+        if n in dataset:
+            continue
+        params = {k: validation_samples[k][n] for k in parser.boltzmann_inputs}
+        if get_boltzmann_spectra(parser, boltzmann_code, params, ["Pk/lin"], extra_args):
+            # This function returns False if the sample is invalid, so it's a
+            # simple check to discard invalid datapoints.
+            network_params = np.array([
+                validation_samples[k][n] for k in parser.network_input_parameters("Pk/lin")
+            ])
+            dataset.write_data(n, network_params, log(boltzmann_code["Pk/lin"]))

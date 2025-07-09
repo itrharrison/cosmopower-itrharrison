@@ -41,7 +41,7 @@ class cosmopower_PCAplusNN(tf.keras.Model):
     def __init__(self, cp_pca: Optional[object] = None,
                  n_hidden: list = [512, 512, 512],
                  restore_filename: Optional[str] = None,
-                 trainable: bool = True, optimizer: tf.keras.Optimizer = None,
+                 trainable: bool = True, optimizer: Optional = None,
                  verbose: bool = False, allow_pickle: bool = False) -> None:
         r"""
         Constructor.
@@ -681,7 +681,8 @@ class cosmopower_PCAplusNN(tf.keras.Model):
         return accumulated_loss
 
     def train(self, training_data: Sequence,
-              filename_saved_model: str, validation_split: float = 0.1,
+              filename_saved_model: str,
+              validation: Union[Sequence,float] = 0.1,
               learning_rates: Sequence[float] = [1e-2, 1e-3, 1e-4, 1e-5, 1e-6],
               batch_sizes: Union[int, Sequence[int]] = 1000,
               gradient_accumulation_steps: Union[int, Sequence[int]] = 1,
@@ -695,8 +696,9 @@ class cosmopower_PCAplusNN(tf.keras.Model):
                 list of datasets that contain training data.
             filename_saved_model (str):
                 filename tag where model will be saved
-            validation_split (float):
-                percentage of training data used for validation
+            validation (Sequence or float):
+                if a (list of) Datasets, use these files for validation data.
+                if a float, use part of the training data for validation.
             learning_rates (list[float]):
                 learning rates for each step of learning schedule
             batch_sizes (int or list[int]):
@@ -730,8 +732,6 @@ class cosmopower_PCAplusNN(tf.keras.Model):
         # training start info, if verbose
         if self.verbose:
             multiline_str = "Starting cosmopower_PCAplusNN training, \n" \
-                            f"using {int(100*validation_split)} per cent of " \
-                            "training samples for validation. \n" \
                             f"Performing {len(learning_rates)} learning " \
                             "steps, with \n" \
                             f"{list(learning_rates)} learning rates \n" \
@@ -746,8 +746,8 @@ class cosmopower_PCAplusNN(tf.keras.Model):
         training_features = None
 
         progress_file = open(filename_saved_model + ".progress", "w")
-        progress_file.write("# Learning step\tLearning rate\tBatch size\t\
-                             Epoch\tValidation loss\tBest loss\n")
+        progress_file.write("# Learning step\tLearning rate\tBatch size\t"\
+                            "Epoch\tValidation loss\tBest loss\n")
         progress_file.flush()
 
         self.parameters_mean = None
@@ -831,10 +831,49 @@ class cosmopower_PCAplusNN(tf.keras.Model):
         self.features_std = tf.constant(self.cp_pca.features_std,
                                         dtype=dtype, name="features_std")
 
-        # training/validation split
-        n_samples = training_parameters.shape[0]
-        n_validation = int(n_samples * validation_split)
-        n_training = int(n_samples) - n_validation
+        if type(validation) == float:
+            # training/validation split
+            n_samples = training_parameters.shape[0]
+            n_validation = int(n_samples * validation)
+            n_training = int(n_samples) - n_validation
+            validation_split = True
+
+            training_parameters = tf.convert_to_tensor(training_parameters,
+                                                       dtype=dtype)
+            training_features = tf.convert_to_tensor(training_features,
+                                                     dtype=dtype)
+        elif type(validation) == list or type(validation) == Dataset:
+            if type(validation) == Dataset:
+                validation = [validation]
+
+            n_samples = training_parameters.shape[0]
+            n_training = int(n_samples)
+
+            validation_parameters = None
+            validation_features = None
+            validation_split = False
+
+            for dataset in validation:
+                with dataset:
+                    parameters, features = dataset.read_data()
+
+                    m = ~np.logical_or(np.any(np.isnan(parameters), axis=1),
+                                       np.any(np.isnan(features), axis=1))
+                    parameters = parameters[m, :]
+                    features = features[m, :]
+
+                    if validation_parameters is None:
+                        validation_parameters = parameters
+                        validation_features = features
+                    else:
+                        validation_parameters = np.concatenate((validation_parameters,
+                                                                parameters))
+                        validation_features = np.concatenate((validation_features,
+                                                              features))
+            
+            n_validation = validation_parameters.shape[0]
+            
+            print(f"Found a total of {validation_features.shape[0]} validation spectra.")
 
         training_pca = self.cp_pca.PCA.transform(
             (training_features - self.cp_pca.features_mean)
@@ -852,16 +891,21 @@ class cosmopower_PCAplusNN(tf.keras.Model):
             # set learning rate
             self.optimizer.lr = learning_rates[i]
 
-            # split into validation and training sub-sets
-            split = tf.random.shuffle([True] * n_training
-                                      + [False] * n_validation)
+            if validation_split:
+                # Split the data into a training and validation dataset,
+                # and batch them.
+                split = tf.random.shuffle([True] * n_training
+                                          + [False] * n_validation)
 
-            # create iterable dataset (given batch size)
-            training_data = tf.data.Dataset.from_tensor_slices(
-                (training_parameters[split], training_pca[split])
-            ).shuffle(n_training).batch(batch_sizes[i])
-            validation_parameters = training_parameters[~split]
-            validation_features = training_pca[~split]
+                training_data = tf.data.Dataset.from_tensor_slices(
+                    (training_parameters[split], training_features[split])
+                ).shuffle(n_training).batch(batch_sizes[i])
+                validation_parameters = training_parameters[~split]
+                validation_features = training_features[~split]
+            else:
+                training_data = tf.data.Dataset.from_tensor_slices(
+                    (training_parameters, training_features)
+                ).shuffle(n_training).batch(batch_sizes[i])
 
             # set up training loss
             validation_loss = [np.infty]
