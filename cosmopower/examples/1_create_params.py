@@ -2,7 +2,6 @@
 
 # Author: A. Spurio Mancini, H. T. Jense
 
-import cosmopower as cp
 from cosmopower.parser import YAMLParser
 
 """
@@ -18,7 +17,8 @@ parser.setup_path(force_clean=True)
 
 print(parser.all_parameters)
 
-samples, validation_samples = parser.get_parameter_samples(return_validation = True)
+samples, validation_samples = \
+    parser.get_parameter_samples(return_validation=True)
 
 print(samples)
 

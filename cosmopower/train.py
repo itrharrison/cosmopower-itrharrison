@@ -538,8 +538,8 @@ def train_networks(args: Optional[list] = None) -> None:
     # Parse the command line arguments.
     import argparse
     argp = argparse.ArgumentParser(prog="cosmopower train",
-                                   description="Train a cosmopower network \
-                                                from generated spectra.")
+                                   description="Train a cosmopower network" \
+                                               "from generated spectra.")
     argp.add_argument("yamlfile", type=str, help="The .yaml file to parse.")
     argp.add_argument("-d", "--dir", dest="root_dir", type=str,
                       help="A root directory to work in.")
@@ -548,14 +548,14 @@ def train_networks(args: Optional[list] = None) -> None:
     argp.add_argument("-c", "--cpu", dest="use_cpu", action="store_true",
                       help="Force the usage of a CPU.")
     argp.add_argument("-f", "--force", dest="force", action="store_true",
-                      help="If set, overwrite existing networks (skip already \
-                            existing networks if not).")
+                      help="If set, overwrite existing networks (skip" \
+                           "already existing networks if not).")
     argp.add_argument("-q", "--quantity", dest="quantities", type=str,
-                      default=None, help="A list of comma-separated \
-                                          quantities that you want to train. \
-                                          If not set, all quantities will be \
-                                          trained. Example: `-q Cl/tt,Cl/te` \
-                                          will train only Cl/tt and Cl/te.")
+                      default=None, help="A list of comma-separated" \
+                                         "quantities that you want to train." \
+                                         "If not set, all quantities will be" \
+                                         "trained. Example: `-q Cl/tt,Cl/te`" \
+                                         "will train only Cl/tt and Cl/te.")
 
     args = argp.parse_args(args)
 
@@ -589,5 +589,5 @@ def train_networks(args: Optional[list] = None) -> None:
             train_network_PCAplusNN(parser, quantity, device=device_name,
                                     overwrite=args.force)
         else:
-            raise ValueError(f"Unknown network type '{network_type}' [should \
-                               be of NN or PCAplusNN type].")
+            raise ValueError(f"Unknown network type '{network_type}' [should" \
+                              "be of NN or PCAplusNN type].")

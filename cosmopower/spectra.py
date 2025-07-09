@@ -183,6 +183,7 @@ def generate_spectra(args: list = None) -> None:
     files = {q: None for q in parser.quantities}
 
     if rank == 0:
+        # TODO: Generate the validation samples.
         samples, validation_samples = \
             parser.get_parameter_samples(force_new = args.force)
     else:

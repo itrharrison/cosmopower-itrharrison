@@ -2,17 +2,15 @@
 
 # Author: A. Spurio Mancini, H. T. Jense
 
-import os, glob
-import numpy as np
-import cosmopower as cp
+import os
 import tensorflow as tf
 from cosmopower import cosmopower_NN
 from cosmopower.parser import YAMLParser
 from cosmopower.dataset import Dataset
 
 """
-In the previous file, we created a training dataset for a linear P(k,z) emulator.
-Here, we will train the emulator over this dataset.
+In the previous file, we created a training dataset for a linear P(k,z)
+emulator. Here, we will train the emulator over this dataset.
 """
 parser = YAMLParser("example.yaml")
 
@@ -26,7 +24,8 @@ There is also the `3a_train_PCA_emulator.py` file which does the same as this
 file but trains a PCA+NN type emulator.
 """
 input_file = os.path.join(parser.path, "spectra", "Pk_lin.hdf5")
-output_file = os.path.join(parser.path, "networks", parser.network_filename("Pk/lin"))
+output_file = os.path.join(parser.path, "networks",
+                           parser.network_filename("Pk/lin"))
 
 print("Training the linear P(k) emulator.")
 print(f"Input files: {input_file}")
