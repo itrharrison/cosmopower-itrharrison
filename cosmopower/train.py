@@ -57,6 +57,10 @@ def train_network_NN(parser: YAMLParser, quantity: str, device: str = "",
                                            "_validation.*.hdf5"))
         validation = [Dataset(parser, quantity, os.path.basename(filename))
                       for filename in filenames]
+        
+        if len(validation) == 0:
+            print(f"No validation data found? Defaulting to 10% split.")
+            validation = 0.1
 
     with tf.device(device):
         print("\tTraining NN.")
@@ -108,6 +112,10 @@ def train_network_PCAplusNN(parser: YAMLParser, quantity: str,
                                            "_validation.*.hdf5"))
         validation = [Dataset(parser, quantity, os.path.basename(filename))
                       for filename in filenames]
+        
+        if len(validation) == 0:
+            print(f"No validation data found? Defaulting to 10% split.")
+            validation = 0.1
 
     cp_pca = cosmopower_PCA(parameters=parameters, modes=modes, n_pcas=n_pcas,
                             n_batches=n_batches, verbose=True)

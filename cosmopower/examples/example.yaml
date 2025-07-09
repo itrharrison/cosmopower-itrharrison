@@ -14,8 +14,8 @@ emulated_code:
 
 samples:
   # How many training and validation samples do we want to generate.
-  Ntraining: 1000
-  Nvalidation: 100
+  Ntraining: 400
+  Nvalidation: 25
   
   # The parameters of the LHC over which the samples are generated.
   parameters:

@@ -14,9 +14,17 @@ except ImportError:
     tqdm = lambda x: x  # noqa: E731
 
 """
-In the previous file, we generated an LHC and saved it to the file
+In the previous tutorial, we generated an LHC and saved it to the file
 `example/spectra/parameters.hdf5`. Now we'll generate the spectra associated
 with this dataset.
+
+The result of this file will be several training spectra. You can compare the
+result of this tutorial with invoking the command
+
+    python -m cosmopower generate example.yaml
+
+which generates both the LHC from tutorial 1 and the spectra from this
+tutorial.
 """
 parser = YAMLParser("example.yaml")
 

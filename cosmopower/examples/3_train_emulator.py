@@ -11,6 +11,14 @@ from cosmopower.dataset import Dataset
 """
 In the previous file, we created a training dataset for a linear P(k,z)
 emulator. Here, we will train the emulator over this dataset.
+
+The result of this file will be an emulator trained over the spectra generated
+before. You can compare the result from this file with the results from
+invoking the command
+
+    python -m cosmopower train example.yaml
+
+which loads the data, initializes the emulators, and trains them.
 """
 parser = YAMLParser("example.yaml")
 
@@ -42,7 +50,7 @@ network = cosmopower_NN(parameters=parser.network_input_parameters("Pk/lin"),
                         trainable=True,
                         **settings.get("n_traits", {}))
 
-with tf.device("/device:CPU:0"):
+with tf.device(None):
     network.train(training_data=datasets,
                   filename_saved_model=output_file,
                   validation=validation,
