@@ -14,8 +14,8 @@ emulated_code:
 
 samples:
   # How many training and validation samples do we want to generate.
-  Ntraining: 400
-  Nvalidation: 25
+  Ntraining: 4000
+  Nvalidation: 200
   
   # The parameters of the LHC over which the samples are generated.
   parameters:
@@ -51,6 +51,6 @@ networks:
     # Batch sizes and learning rates for the training sequence.
     training:
       learning_rates: [1.e-2, 1.e-3, 1.e-4]
-      batch_sizes: [25, 100, 200]
+      batch_sizes: [100, 200, 500]
       patience_values: 100
       max_epochs: 1000
