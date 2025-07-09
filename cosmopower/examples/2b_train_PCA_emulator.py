@@ -20,10 +20,10 @@ print(network_settings)
 
 """
 We assume that we simply want to train a dense neural network.
-There is also the `3_train_emulator.py` file which does the same as this
+There is also the `2a_train_emulator.py` file which does the same as this
 file but trains a NN type emulator.
 """
-input_file = os.path.join(parser.path, "spectra", "Pk_lin.hdf5")
+input_file = os.path.join(parser.path, "spectra", "Pk_lin.0.hdf5")
 output_file = os.path.join(parser.path, "networks",
                            parser.network_filename("Pk/lin"))
 
@@ -33,8 +33,8 @@ print(f"Output file: {output_file}")
 
 settings = parser.get_traits("Pk/lin")
 
-datasets = [Dataset(parser, "Pk/lin", "Pk_lin.hdf5")]
-validation = [Dataset(parser, "Pk/lin", "Pk_lin_validation.hdf5")]
+datasets = [Dataset(parser, "Pk/lin", "Pk_lin.0.hdf5")]
+validation = [Dataset(parser, "Pk/lin", "Pk_lin_validation.0.hdf5")]
 modes = parser.modes("Pk/lin")
 
 pca = cosmopower_PCA(parameters=parser.network_input_parameters("Pk/lin"),

@@ -24,7 +24,7 @@ def train_network_NN(parser: YAMLParser, quantity: str, device: str = "",
     """
     import glob
     filenames = glob.glob(os.path.join(parser.path, "spectra",
-                                       quantity.replace("/", "_") + ".*.hdf5"))
+                                       quantity.replace("/", "_") + ".[0-9].hdf5"))
 
     if len(filenames) == 0:
         raise IOError(f"No files found to train quantity {quantity} with.")
@@ -54,7 +54,7 @@ def train_network_NN(parser: YAMLParser, quantity: str, device: str = "",
     else:
         filenames = glob.glob(os.path.join(parser.path, "spectra",
                                            quantity.replace("/", "_") + \
-                                           "_validation.*.hdf5"))
+                                           ".validation.[0-9].hdf5"))
         validation = [Dataset(parser, quantity, os.path.basename(filename))
                       for filename in filenames]
         
@@ -84,7 +84,7 @@ def train_network_PCAplusNN(parser: YAMLParser, quantity: str,
     """
     import glob
     filenames = glob.glob(os.path.join(parser.path, "spectra",
-                                       quantity.replace("/", "_") + ".*.hdf5"))
+                                       quantity.replace("/", "_") + ".[0-9].hdf5"))
 
     saved_filename = os.path.join(parser.path, "networks",
                                   parser.network_filename(quantity))
@@ -96,6 +96,7 @@ def train_network_PCAplusNN(parser: YAMLParser, quantity: str,
 
     datasets = [Dataset(parser, quantity, os.path.basename(filename))
                 for filename in filenames]
+    training_params = parser.network_training_parameters(quantity)
 
     parameters = parser.network_input_parameters(quantity)
 
@@ -109,7 +110,7 @@ def train_network_PCAplusNN(parser: YAMLParser, quantity: str,
     else:
         filenames = glob.glob(os.path.join(parser.path, "spectra",
                                            quantity.replace("/", "_") + \
-                                           "_validation.*.hdf5"))
+                                           ".validation.[0-9].hdf5"))
         validation = [Dataset(parser, quantity, os.path.basename(filename))
                       for filename in filenames]
         
@@ -570,7 +571,7 @@ def train_networks(args: Optional[list] = None) -> None:
     if args.use_gpu and args.use_cpu:
         raise Exception("The --gpu and --cpu flags are mutually exclusive.")
 
-    device_name = ""
+    device_name = None
     if args.use_gpu:
         device_name = "/GPU:0"
     if args.use_cpu:

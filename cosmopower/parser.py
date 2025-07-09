@@ -298,16 +298,31 @@ class YAMLParser:
     @property
     def nsamples(self) -> int:
         """
+        The total (desired) number of samples to be used (i.e. the sum of the
+        number of training, validation, and testing samples).
+        """
+        return self.ntraining + self.nvalidation + self.ntesting
+    
+    @property
+    def ntraining(self) -> int:
+        """
         The number of (desired) training samples in the network.
         """
-        return self._samples.get("Ntraining")
-    
+        return self._samples.get("training")
+
     @property
     def nvalidation(self) -> int:
         """
         The number of (desired) validation samples in the network.
         """
-        return self._samples.get("Nvalidation", 0)
+        return self._samples.get("validation", 0)
+
+    @property
+    def ntesting(self) -> int:
+        """
+        The number of (desired) validation samples in the network.
+        """
+        return self._samples.get("testing", 0)
 
     def parameter_value(self, param) -> Any:
         """
@@ -351,6 +366,7 @@ class YAMLParser:
         Given a set of parameters, compute all derived parameters and add them
         to this set.
         """
+        n = len(parameters[list(parameters.keys())[0]])
         for param in self.derived_parameters:
             if param in parameters:
                 continue
@@ -363,7 +379,10 @@ class YAMLParser:
                           for i in lambda_function.__code__.co_varnames]
                 parameters[param] = lambda_function(*inputs)
             elif type(val) is float:
-                parameters[param] = np.tile(val, (self.nsamples,))
+                parameters[param] = np.tile(val, (n,))
+        
+        for param in self.computed_parameters:
+            parameters[param] = np.tile(np.nan, (n,))
 
         return parameters
 
@@ -451,9 +470,9 @@ class YAMLParser:
 
         for param in self.input_parameters:
             xmin, xmax = self.parameter_value(param)
-            ranges[param] = np.linspace(xmin, xmax, self.nsamples + self.nvalidation)
+            ranges[param] = np.linspace(xmin, xmax, self.nsamples)
 
-        lhc = pyDOE.lhs(len(self.input_parameters), self.nsamples + self.nvalidation,
+        lhc = pyDOE.lhs(len(self.input_parameters), self.nsamples,
                         criterion=None)
         idx = (lhc * self.nsamples).astype(int)
 
@@ -476,7 +495,7 @@ class YAMLParser:
         p = list(lhc.keys())[0]
         n = lhc[p].shape[0]
 
-        while n < self.nsamples + self.nvalidation:
+        while n < self.nsamples:
             lhc_new = {}
             reparse = {}
 
@@ -508,8 +527,7 @@ class YAMLParser:
         return lhc
 
     def get_parameter_samples(self, force_new: bool = False,
-                              allow_augmentation: bool = True,
-                              return_validation: bool = False) -> dict:
+                              allow_augmentation: bool = True) -> dict:
         """
         Obtain the training samples for this parser.
         If a file exists with the correct settings, then this file will be
@@ -521,6 +539,7 @@ class YAMLParser:
 
         samples = {}
         validation_samples = {}
+        testing_samples = {}
         generate_new = False
 
         if not force_new:
@@ -553,7 +572,7 @@ class YAMLParser:
                     samples = self.add_derived_parameters(samples)
                     validation_samples = self.add_derived_parameters(validation_samples)
                     
-                    requested = self.nsamples + self.nvalidation
+                    requested = self.nsamples
                     if requested > existing:
                         if not allow_augmentation:
                             samples = {}
@@ -563,8 +582,9 @@ class YAMLParser:
                             samples = {p : np.concatenate((samples[p], validation_samples[p])) for p in samples}
                             samples = self.augment_lhc(samples)
                             
-                            validation_samples = {k: samples[k][self.nsamples:] for k in samples}
-                            samples = {k: samples[k][:self.nsamples] for k in samples}
+                            testing_samples = {k: samples[k][:self.ntesting] for k in samples}
+                            validation_samples = {k: samples[k][self.ntesting:self.ntesting+self.nvalidation] for k in samples}
+                            samples = {k: samples[k][self.ntesting+self.nvalidation:] for k in samples}
                 fp.close()
             except FileNotFoundError as e:
                 print("File not found. Making new dataset.")
@@ -574,15 +594,15 @@ class YAMLParser:
             samples = self.new_lhc()
             samples = self.add_derived_parameters(samples)
             
-            validation_samples = {k: samples[k][self.nsamples:] for k in samples}
-            samples = {k: samples[k][:self.nsamples] for k in samples}
+            testing_samples = {k: samples[k][:self.ntesting] for k in samples}
+            validation_samples = {k: samples[k][self.ntesting:self.ntesting+self.nvalidation] for k in samples}
+            samples = {k: samples[k][self.ntesting+self.nvalidation:] for k in samples}
 
-        if return_validation:
-            return samples, validation_samples
+        return samples, validation_samples, testing_samples
 
-        return samples
-
-    def save_samples_to_file(self, samples: dict, validation: Optional[dict]) -> None:
+    def save_samples_to_file(self, samples: dict,
+                             validation: Optional[dict]=None,
+                             testing: Optional[dict]=None) -> None:
         filename = os.path.join(self.path, "spectra", "parameters.hdf5")
 
         fp = h5py.File(filename, "w")
@@ -595,7 +615,7 @@ class YAMLParser:
         for i, p in enumerate(self.sampled_parameters):
             sampled_parameters[i] = str(p)
         
-        data = fp.require_dataset("data", (self.nsamples,
+        data = fp.require_dataset("data", (self.ntraining,
                                            len(self.sampled_parameters)),
                                   dtype=float,
                                   maxshape=(None,
@@ -618,5 +638,18 @@ class YAMLParser:
                 vdata[:,i] = validation[p][:]
 
             header["nvalidation"] = vdata.shape[0]
+        
+        if testing:
+            tdata = fp.require_dataset("testing",
+                                       (self.ntesting,
+                                        len(self.sampled_parameters)),
+                                       dtype=float,
+                                       maxshape=(None,
+                                                 len(self.sampled_parameters)))
+
+            for i, p in enumerate(self.sampled_parameters):
+                tdata[:,i] = testing[p][:]
+
+            header["ntesting"] = tdata.shape[0]
 
         fp.close()

@@ -836,7 +836,10 @@ class cosmopower_PCAplusNN(tf.keras.Model):
             n_samples = training_parameters.shape[0]
             n_validation = int(n_samples * validation)
             n_training = int(n_samples) - n_validation
+
             validation_split = True
+            validation_parameters = None
+            validation_features = None
 
             training_parameters = tf.convert_to_tensor(training_parameters,
                                                        dtype=dtype)
@@ -881,12 +884,17 @@ class cosmopower_PCAplusNN(tf.keras.Model):
         training_parameters = tf.convert_to_tensor(training_parameters,
                                                    dtype=dtype)
         training_pca = tf.convert_to_tensor(training_pca, dtype=dtype)
+        
+        if validation_features:
+            validation_pca = self.cp_pca.PCA.transform(
+                (validation_features - self.cp_pca.features_mean)
+                / self.cp_pca.features_std)
 
         # train using cooling/heating schedule for lr/batch-size
         for i in range(len(learning_rates)):
 
-            print(f"learning rate = {learning_rates[i]}, \
-                    batch size = {batch_sizes[i]}")
+            print(f"learning rate = {learning_rates[i]}, " \
+                  f"batch size = {batch_sizes[i]}")
 
             # set learning rate
             self.optimizer.lr = learning_rates[i]
@@ -898,13 +906,13 @@ class cosmopower_PCAplusNN(tf.keras.Model):
                                           + [False] * n_validation)
 
                 training_data = tf.data.Dataset.from_tensor_slices(
-                    (training_parameters[split], training_features[split])
+                    (training_parameters[split], training_pca[split])
                 ).shuffle(n_training).batch(batch_sizes[i])
                 validation_parameters = training_parameters[~split]
-                validation_features = training_features[~split]
+                validation_pca = training_pca[~split]
             else:
                 training_data = tf.data.Dataset.from_tensor_slices(
-                    (training_parameters, training_features)
+                    (training_parameters, training_pca)
                 ).shuffle(n_training).batch(batch_sizes[i])
 
             # set up training loss
@@ -917,7 +925,6 @@ class cosmopower_PCAplusNN(tf.keras.Model):
                 for epoch in t:
                     # loop over batches
                     for theta, pca in training_data:
-
                         # training step: check whether to accumulate gradients
                         # or not (only worth doing this for very large batch
                         # sizes)
@@ -931,7 +938,7 @@ class cosmopower_PCAplusNN(tf.keras.Model):
 
                     # compute validation loss at the end of the epoch
                     vloss = self.compute_loss(validation_parameters,
-                                              validation_features).numpy()
+                                              validation_pca).numpy()
                     validation_loss.append(vloss)
 
                     # early stopping condition

@@ -95,7 +95,7 @@ def get_boltzmann_spectra(parser: YAMLParser, state: dict, args: dict = {},
 
 def cycle_spectrum_file(parser: YAMLParser, quantity: str,
                         fp: Optional[Dataset], n: int = 0,
-                        validation: bool = False) -> Dataset:
+                        suffix: str = "") -> Dataset:
     """
     Cycle the given spectrum file, i.e. open the next file we expect will
     contain spectrum data.
@@ -105,7 +105,7 @@ def cycle_spectrum_file(parser: YAMLParser, quantity: str,
       can contain spectra for quantity.
     If the resulting file does not exist, it will automatically create one.
     """
-    suffix = "_validation" if validation else ""
+    if suffix != "": suffix = "." + suffix
     if fp is None:
         dataset = Dataset(parser, quantity,
                           quantity.replace("/", "_") + f"{suffix}.{n}.hdf5")
@@ -156,19 +156,18 @@ def split_samples(MPI: Optional[ModuleType], parser: YAMLParser, samples: dict,
 
 
 def check_open_files(parser: YAMLParser, files: dict, n: int,
-                     first_file: int, validation: bool = False
-                    ) -> Tuple[dict, list]:
+                     first_file: int, suffix: str = "") -> Tuple[dict, list]:
     quantities_to_be_computed = []
     
     for q in parser.quantities:
         if files[q] is None:
             # Open first file to read from.
             files[q] = cycle_spectrum_file(parser, q, files[q],
-                                           n=first_file, validation=validation)
+                                           n=first_file, suffix=suffix)
         while files[q].empty_size == 0 and files[q].indices.max() < n:
             # Current file is full, so we have to cycle to the next one.
             files[q] = cycle_spectrum_file(parser, q, files[q],
-                                           n=first_file, validation=validation)
+                                           n=first_file, suffix=suffix)
 
         if n not in files[q].indices:
             quantities_to_be_computed.append(q)
@@ -244,23 +243,18 @@ def generate_spectra(args: list = None) -> None:
     files = {q: None for q in parser.quantities}
 
     if rank == 0:
-        # TODO: Generate the validation samples.
-        if parser.nvalidation:
-            samples, validation_samples = \
-                parser.get_parameter_samples(force_new=args.force_overwrite,
-                                             return_validation=True)
-        else:
-            samples = \
-                parser.get_parameter_samples(force_new=args.force_overwrite)
-            validation_samples = {}
+        training, validation, testing = \
+            parser.get_parameter_samples(force_new=args.force_overwrite)
     else:
-        samples, validation_samples = None, None
+        training, validation, testing = None, None, None
 
-    samples, first, last, first_file, last_file = \
-        split_samples(MPI, parser, samples, parser.nsamples)
+    ### TODO: This is the same code three times and should be made a lot
+    #         cleaner!
+    training, first, last, first_file, last_file = \
+        split_samples(MPI, parser, training, parser.ntraining)
 
-    print(f"[{rank}]: Iterating over samples {first}--{last} in files " \
-          f"{first_file}--{last_file}.")
+    print(f"[{rank}]: Iterating over training samples {first}--{last} in " \
+          f"files {first_file}--{last_file}.")
 
     state = init_boltzmann_code(parser)
     extra_args = parser.boltzmann_extra_args
@@ -274,10 +268,10 @@ def generate_spectra(args: list = None) -> None:
         tbar.set_description(("" if MPI is None else f"[{rank}] ")
                              + f"{accepted/n:.1%} success rate")
 
-        boltzmann_params = {k: samples[k][n] for k in parser.boltzmann_inputs}
+        boltzmann_params = {k: training[k][n] for k in parser.boltzmann_inputs}
 
         files, quantities_to_be_computed = \
-            check_open_files(parser, files, n, first_file,validation=False)
+            check_open_files(parser, files, n, first_file)
 
         if len(quantities_to_be_computed) == 0:
             accepted += 1
@@ -288,7 +282,7 @@ def generate_spectra(args: list = None) -> None:
             accepted += 1
 
             for k in state["derived"]:
-                samples[k][n] = state["derived"][k]
+                training[k][n] = state["derived"][k]
 
             for q in quantities_to_be_computed:
                 if q == "derived":
@@ -307,13 +301,12 @@ def generate_spectra(args: list = None) -> None:
                     continue
 
                 network_params = np.array([
-                    samples[k][n] for k in parser.network_input_parameters(q)
+                    training[k][n] for k in parser.network_input_parameters(q)
                 ])
 
                 if files[q] is None:
                     files[q] = cycle_spectrum_file(parser, q, files[q],
-                                                   n=first_file,
-                                                   validation=False)
+                                                   n=first_file)
 
                 files[q].write_data(n, network_params, spec)
 
@@ -322,7 +315,7 @@ def generate_spectra(args: list = None) -> None:
             files[q].close()
             files[q] = None
 
-    if validation_samples == {}:
+    if validation == {} and testing == {}:
         if rank == 0:
             print(f"Finished generating {accepted} spectra.")
             print(f"You can now run\n\tcosmopower train {args.yamlfile}\n" \
@@ -330,8 +323,8 @@ def generate_spectra(args: list = None) -> None:
             return
     
     # Do the exact same thing all over again, but for validation samples.
-    validation_samples, first, last, first_file, last_file = \
-        split_samples(MPI, parser, validation_samples, parser.nvalidation)
+    validation, first, last, first_file, last_file = \
+        split_samples(MPI, parser, validation, parser.nvalidation)
 
     print(f"[{rank}]: Iterating over validation samples {first}--{last} in " \
           f"files {first_file}--{last_file}.")
@@ -346,11 +339,11 @@ def generate_spectra(args: list = None) -> None:
                              + f"{accepted/n:.1%} success rate")
 
         boltzmann_params = {
-            k: validation_samples[k][n] for k in parser.boltzmann_inputs
+            k: validation[k][n] for k in parser.boltzmann_inputs
         }
 
         files, quantities_to_be_computed = \
-            check_open_files(parser, files, n, first_file, validation=True)
+            check_open_files(parser, files, n, first_file, suffix="validation")
 
         if len(quantities_to_be_computed) == 0:
             accepted += 1
@@ -361,7 +354,7 @@ def generate_spectra(args: list = None) -> None:
             accepted += 1
 
             for k in state["derived"]:
-                validation_samples[k][n] = state["derived"][k]
+                validation[k][n] = state["derived"][k]
 
             for q in quantities_to_be_computed:
                 if q == "derived":
@@ -380,14 +373,81 @@ def generate_spectra(args: list = None) -> None:
                     continue
 
                 network_params = np.array([
-                    validation_samples[k][n]
+                    validation[k][n]
                     for k in parser.network_input_parameters(q)
                 ])
 
                 if files[q] is None:
                     files[q] = cycle_spectrum_file(parser, q, files[q],
                                                    n=first_file,
-                                                   validation=True)
+                                                   suffix="validation")
+
+                files[q].write_data(n, network_params, spec)
+
+    for q in files:
+        if files[q] is not None and files[q].is_open:
+            files[q].close()
+            files[q] = None
+
+    # Do the exact same thing all over again, but for testing samples.
+    testing, first, last, first_file, last_file = \
+        split_samples(MPI, parser, testing, parser.ntesting)
+
+    print(f"[{rank}]: Iterating over testing samples {first}--{last} in " \
+          f"files {first_file}--{last_file}.")
+
+    accepted = 0
+    tbar = tqdm.tqdm(np.arange(first, last + 1))
+
+    Barrier()
+
+    for n in tbar:
+        tbar.set_description(("" if MPI is None else f"[{rank}] ")
+                             + f"{accepted/n:.1%} success rate")
+
+        boltzmann_params = {
+            k: testing[k][n] for k in parser.boltzmann_inputs
+        }
+
+        files, quantities_to_be_computed = \
+            check_open_files(parser, files, n, first_file, suffix="testing")
+
+        if len(quantities_to_be_computed) == 0:
+            accepted += 1
+            continue
+
+        if get_boltzmann_spectra(parser, state, boltzmann_params,
+                                 quantities_to_be_computed, extra_args):
+            accepted += 1
+
+            for k in state["derived"]:
+                testing[k][n] = state["derived"][k]
+
+            for q in quantities_to_be_computed:
+                if q == "derived":
+                    spec = np.asarray([state["derived"].get(p)
+                                       for p in parser.computed_parameters])
+                else:
+                    spec = state.get(q, None)
+
+                if spec is None:
+                    continue
+
+                if parser.is_log(q):
+                    spec = np.log10(spec)
+
+                if np.any(np.isnan(spec)):
+                    continue
+
+                network_params = np.array([
+                    testing[k][n]
+                    for k in parser.network_input_parameters(q)
+                ])
+
+                if files[q] is None:
+                    files[q] = cycle_spectrum_file(parser, q, files[q],
+                                                   n=first_file,
+                                                   suffix="testing")
 
                 files[q].write_data(n, network_params, spec)
 

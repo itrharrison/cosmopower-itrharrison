@@ -56,7 +56,7 @@ pk_lin_emu = emulators["Pk/lin"]
 Load a random validation spectrum (we use the validation dataset, because the
 emulator was not trained over these spectra).
 """
-with Dataset(parser, "Pk/lin", "Pk_lin_validation.hdf5") as dataset:
+with Dataset(parser, "Pk/lin", "Pk_lin.test.0.hdf5") as dataset:
     j = np.random.randint(len(dataset))
 
     params = dataset.read_parameters(j)
@@ -92,7 +92,7 @@ plt.show()
 Let's compute the percentile regions of the absolute difference between the
 validation dataset and the emulator.
 """
-with Dataset(parser, "Pk/lin", "Pk_lin_validation.hdf5") as dataset:
+with Dataset(parser, "Pk/lin", "Pk_lin.test.0.hdf5") as dataset:
     inputs, outputs = dataset.read_data(as_dict=True)
 
 prediction = pk_lin_emu.ten_to_predictions_np(inputs)
