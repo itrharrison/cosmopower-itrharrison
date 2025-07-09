@@ -9,21 +9,6 @@ from .parser import YAMLParser
 from .util import get_noise_curves_SO, get_noise_curves_CVL
 
 
-def find_files(parser: YAMLParser, quantity: str) -> np.ndarray:
-    """
-    This function locates the data that quantity {quantity} should be trained
-    on in the parser, and returns a data array, which is a numpy array of
-    dimension (N, K) with K being the dimension of a spectrum and N being the
-    number of training samples.
-    """
-    import glob
-
-    fn = os.path.join(parser.path, "spectra",
-                      quantity.replace("/", "_") + ".*.hdf5")
-
-    return glob.glob(fn)
-
-
 def train_network_NN(parser: YAMLParser, quantity: str, device: str = "",
                      overwrite: bool = False) -> Optional[cosmopower_NN]:
     """
@@ -37,7 +22,9 @@ def train_network_NN(parser: YAMLParser, quantity: str, device: str = "",
 
     Return: The emulator if successful, or None if not.
     """
-    filenames = find_files(parser, quantity)
+    import glob
+    filenames = glob.glob(os.path.join(parser.path, "spectra",
+                                       quantity.replace("/", "_") + ".*.hdf5"))
 
     if len(filenames) == 0:
         raise IOError(f"No files found to train quantity {quantity} with.")
@@ -60,12 +47,23 @@ def train_network_NN(parser: YAMLParser, quantity: str, device: str = "",
 
     datasets = [Dataset(parser, quantity, os.path.basename(filename))
                 for filename in filenames]
+    training_params = parser.network_training_parameters(quantity)
+    
+    if (validation := training_params.get("validation_split", None)):
+        training_params.pop("validation_split")
+    else:
+        filenames = glob.glob(os.path.join(parser.path, "spectra",
+                                           quantity.replace("/", "_") + \
+                                           "_validation.*.hdf5"))
+        validation = [Dataset(parser, quantity, os.path.basename(filename))
+                      for filename in filenames]
 
     with tf.device(device):
         print("\tTraining NN.")
         network.train(training_data=datasets,
                       filename_saved_model=saved_filename,
-                      **parser.network_training_parameters(quantity))
+                      validation=validation,
+                      **training_params)
 
     return network
 
@@ -80,7 +78,9 @@ def train_network_PCAplusNN(parser: YAMLParser, quantity: str,
 
     Return: whether or not the training was successful.
     """
-    filenames = find_files(parser, quantity)
+    import glob
+    filenames = glob.glob(os.path.join(parser.path, "spectra",
+                                       quantity.replace("/", "_") + ".*.hdf5"))
 
     saved_filename = os.path.join(parser.path, "networks",
                                   parser.network_filename(quantity))
@@ -99,6 +99,15 @@ def train_network_PCAplusNN(parser: YAMLParser, quantity: str,
     n_pcas = settings.get("p_traits").get("n_pcas")
     n_batches = settings.get("p_traits").get("n_batches", 2)
     modes = parser.modes(quantity)
+    
+    if (validation := training_params.get("validation_split", None)):
+        training_params.pop("validation_split")
+    else:
+        filenames = glob.glob(os.path.join(parser.path, "spectra",
+                                           quantity.replace("/", "_") + \
+                                           "_validation.*.hdf5"))
+        validation = [Dataset(parser, quantity, os.path.basename(filename))
+                      for filename in filenames]
 
     cp_pca = cosmopower_PCA(parameters=parameters, modes=modes, n_pcas=n_pcas,
                             n_batches=n_batches, verbose=True)
@@ -109,7 +118,8 @@ def train_network_PCAplusNN(parser: YAMLParser, quantity: str,
         print("\tTraining PCA+NN.")
         network.train(training_data=datasets,
                       filename_saved_model=saved_filename,
-                      **parser.network_training_parameters(quantity))
+                      validation=validation,
+                      **training_params)
 
     return network
 

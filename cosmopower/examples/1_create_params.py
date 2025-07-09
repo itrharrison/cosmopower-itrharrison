@@ -7,8 +7,8 @@ from cosmopower.parser import YAMLParser
 
 """
 Compare the example.yaml file. It contains a basic overview of a linear P(k,z)
-emulator we want to train from 4,000 example spectra in LCDM parameters. In
-addition, we generate 500 validation spectra.
+emulator we want to train from 1,000 example spectra in LCDM parameters. In
+addition, we generate 100 validation spectra across the same parameter range.
 
 The `YAMLParser` object can load this file for us.
 """
