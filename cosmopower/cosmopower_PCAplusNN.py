@@ -711,6 +711,7 @@ class cosmopower_PCAplusNN(tf.keras.Model):
             max_epochs (int or list[int]):
                 maximum number of epochs for each step of learning schedule
         """
+        from .dataset import Dataset
         n_iter = len(learning_rates)
         if type(batch_sizes) is not list:
             batch_sizes = n_iter * [batch_sizes]
@@ -869,14 +870,15 @@ class cosmopower_PCAplusNN(tf.keras.Model):
                         validation_parameters = parameters
                         validation_features = features
                     else:
-                        validation_parameters = np.concatenate((validation_parameters,
-                                                                parameters))
-                        validation_features = np.concatenate((validation_features,
-                                                              features))
+                        validation_parameters = \
+                            np.concatenate((validation_parameters, parameters))
+                        validation_features = \
+                            np.concatenate((validation_features, features))
             
             n_validation = validation_parameters.shape[0]
             
-            print(f"Found a total of {validation_features.shape[0]} validation spectra.")
+            print(f"Found a total of {validation_features.shape[0]} "\
+                   "validation spectra.")
 
         training_pca = self.cp_pca.PCA.transform(
             (training_features - self.cp_pca.features_mean)
@@ -885,10 +887,15 @@ class cosmopower_PCAplusNN(tf.keras.Model):
                                                    dtype=dtype)
         training_pca = tf.convert_to_tensor(training_pca, dtype=dtype)
         
-        if validation_features:
+        if validation_features is not None:
+            validation_parameters = tf.convert_to_tensor(validation_parameters,
+                                                         dtype=dtype)
+            validation_features = tf.convert_to_tensor(validation_features,
+                                                       dtype=dtype)
             validation_pca = self.cp_pca.PCA.transform(
                 (validation_features - self.cp_pca.features_mean)
                 / self.cp_pca.features_std)
+            validation_pca = tf.convert_to_tensor(validation_pca, dtype=dtype)
 
         # train using cooling/heating schedule for lr/batch-size
         for i in range(len(learning_rates)):

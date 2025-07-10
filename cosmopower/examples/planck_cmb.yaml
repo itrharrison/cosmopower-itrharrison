@@ -8,10 +8,10 @@ emulated_code:
     lens_potential_accuracy: 1
 
 samples:
-  training: 10000
-  validation: 1000
-  testing: 1000
-  
+  training: 1000
+  validation: 100
+  testing: 100
+
   parameters:
     # These ranges are taken to be approx. 10x the Plik uncertainties
     # from Planck 2018
@@ -21,9 +21,9 @@ samples:
     logA: [2.9, 3.2]
     ns: [0.92, 1.01]
     tau: [0.01, 0.12]
-    
+
     As: "lambda logA: 1.e-10 * np.exp(logA)"
-    
+
     # Here are several quantities of interest that we might want to include
     # as derived parameters.
     sigma8:
@@ -48,8 +48,8 @@ networks:
       n_hidden: [512,512,512,512]
     training:
       learning_rates: [1.e-2, 1.e-3, 1.e-4, 1.e-5]
-      batch_sizes: [500, 1000, 2000, 5000]
-      patience_values: 100
+      batch_sizes: [50, 100, 200, 500]
+      patience_values: 25
       max_epochs: 1000
 
   - quantity: "Cl/tt"
@@ -63,8 +63,8 @@ networks:
       n_hidden: [512,512,512,512]
     training:
       learning_rates: [1.e-2, 1.e-3, 1.e-4, 1.e-5]
-      batch_sizes: [500, 1000, 2000, 5000]
-      patience_values: 100
+      batch_sizes: [50, 100, 200, 500]
+      patience_values: 25
       max_epochs: 1000
 
   - quantity: "Cl/te"
@@ -81,8 +81,8 @@ networks:
       n_batches: 5
     training:
       learning_rates: [1.e-2, 1.e-3, 1.e-4, 1.e-5]
-      batch_sizes: [500, 1000, 2000, 5000]
-      patience_values: 100
+      batch_sizes: [50, 100, 200, 500]
+      patience_values: 25
       max_epochs: 1000
 
   - quantity: "Cl/ee"
@@ -96,7 +96,7 @@ networks:
       n_hidden: [512,512,512,512]
     training:
       learning_rates: [1.e-2, 1.e-3, 1.e-4, 1.e-5]
-      batch_sizes: [500, 1000, 2000, 5000]
-      patience_values: 100
+      batch_sizes: [50, 100, 200, 500]
+      patience_values: 25
       max_epochs: 1000
 
