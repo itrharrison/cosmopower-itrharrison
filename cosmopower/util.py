@@ -2,13 +2,17 @@ import numpy as np
 from .parser import YAMLParser
 
 
-def _cmb_unit_factor(units, T_cmb):
-    units_factors = {"1": 1,
-                     "muK2": T_cmb * 1.e6,
-                     "K2": T_cmb,
-                     "FIRASmuK2": 2.7255e6,
-                     "FIRASK2": 2.7255
-                     }
+def _cmb_unit_factor(units: str, T_cmb: float = 2.7255) -> float:
+    """
+    Helper function to convert dimensionless values to CMB temperature units.
+    """
+    units_factors = {
+        "1": 1,
+        "muK2": T_cmb * 1.e6,
+        "K2": T_cmb,
+        "FIRASmuK2": 2.7255e6,
+        "FIRASK2": 2.7255
+    }
     try:
         return units_factors[units]
     except KeyError:

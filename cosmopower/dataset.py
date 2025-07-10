@@ -201,7 +201,8 @@ class Dataset:
 
         return spec
 
-    def read_data(self, as_dict: bool = False) -> Tuple[np.ndarray, np.ndarray]:
+    def read_data(self, as_dict: bool = False
+                  ) -> Tuple[np.ndarray, np.ndarray]:
         """Read the ENTIRE file, returning a (parameters, spectra) tuple of
            numpy arrays of generated spectra."""
         self.check_open()
@@ -209,10 +210,10 @@ class Dataset:
 
         parameters = self.file["data"]["parameters"][entries, :]
         spectra = self.file["data"]["spectra"][entries, :]
-        
+
         if as_dict:
             parameters = {
-                k.decode(): parameters[:,i]
+                k.decode(): parameters[:, i]
                 for i, k in enumerate(self.file["header"]["parameters"])
             }
 
@@ -235,15 +236,16 @@ class Dataset:
         """Get the spectrum associated with a given index."""
         return self.read_spectra(key)
 
-    def __contains__(self, key: Union[int, np.ndarray]) -> Union[bool, np.ndarray]:
+    def __contains__(self, key: Union[int, np.ndarray]
+                     ) -> Union[bool, np.ndarray]:
         """Check whether this dataset contains a certain index."""
-        if type(key) == int:
+        if isinstance(key, int):
             return key in self.indices
-        elif type(key) == np.ndarray:
-            dx = self.indices
-            return np.array([ k in idx for k in key ])
+        elif isinstance(key, np.ndarray):
+            idx = self.indices
+            return np.array([k in idx for k in key])
         else:
-           raise TypeError("Key must be (array of) integer type.")
+            raise TypeError("Key must be (array of) integer type.")
 
     @property
     def filename(self) -> str:

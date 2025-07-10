@@ -233,9 +233,8 @@ class cosmopower_NN(tf.keras.Model):
 
     # tensor rescale predictions
     @tf.function
-    def rescaled_predictions_tf(self, 
-                           parameters_tensor
-                           ):
+    def rescaled_predictions_tf(self, parameters_tensor: tf.Tensor
+                                ) -> tf.Tensor:
         r"""
         10^predictions given tensor of input parameters,
         fully implemented in TensorFlow. It raises 10 to the output
@@ -249,13 +248,13 @@ class cosmopower_NN(tf.keras.Model):
             Tensor:
                 output predictions * scaling_division + scaling_subtraction
         """
-        return self.postprocessing_tf(self.predictions_tf(parameters_tensor),self.processing_vectors_tf)
-       
+        return self.postprocessing_tf(self.predictions_tf(parameters_tensor),
+                                      self.processing_vectors_tf)
+
     # tensor 10.**rescaled predictions
     @tf.function
-    def ten_to_rescaled_predictions_tf(self, 
-                           parameters_tensor
-                           ):
+    def ten_to_rescaled_predictions_tf(self, parameters_tensor: tf.Tensor
+                                       ) -> tf.Tensor:
         r"""
         10^predictions given tensor of input parameters,
         fully implemented in TensorFlow. It raises 10 to the output
@@ -269,14 +268,11 @@ class cosmopower_NN(tf.keras.Model):
             Tensor:
                 10^output rescaled predictions
         """
-        return tf.pow(10., self.rescaled_predictions_tf(parameters_tensor)) 
-
-
+        return tf.pow(10., self.rescaled_predictions_tf(parameters_tensor))
 
 # ============= SAVE/LOAD model =============
-
     # save network parameters to Numpy arrays
-    def update_emulator_parameters(self):
+    def update_emulator_parameters(self) -> None:
         r"""
         Update emulator parameters before saving them
         """
@@ -293,7 +289,6 @@ class cosmopower_NN(tf.keras.Model):
         self.parameters_std_ = self.parameters_std.numpy()
         self.features_mean_ = self.features_mean.numpy()
         self.features_std_ = self.features_std.numpy()
-        
 
     def save(self, filename: str) -> None:
         r"""
@@ -513,14 +508,11 @@ class cosmopower_NN(tf.keras.Model):
         """
         return 10.0 ** self.predictions_np(parameters_dict)
 
-
     # Numpy array 10.**predictions
-    def rescaled_predictions_np(self,
-                            parameters_dict
-                            ):
+    def rescaled_predictions_np(self, parameters_dict: dict) -> np.ndarray:
         r"""
-        resclaing of the predictions given input parameters collected in a dict.
-        Fully implemented in Numpy. It raises 10 to the output
+        resclaing of the predictions given input parameters collected in a
+        dict. Fully implemented in Numpy. It raises 10 to the output
         from ``forward_pass_np``
 
         Parameters:
@@ -531,14 +523,13 @@ class cosmopower_NN(tf.keras.Model):
             numpy.ndarray:
                 output predictions * scaling_division + scaling_subtraction
         """
-        
-        return self.postprocessing_np(self.predictions_np(parameters_dict),self.processing_vectors_np)
 
-    
+        return self.postprocessing_np(self.predictions_np(parameters_dict),
+                                      self.processing_vectors_np)
+
     # Numpy array 10.**rescaled predictions
-    def ten_to_rescaled_predictions_np(self,
-                            parameters_dict
-                            ):
+    def ten_to_rescaled_predictions_np(self, parameters_dict: dict
+                                       ) -> np.ndarray:
         r"""
         10^predictions given input parameters collected in a dict.
         Fully implemented in Numpy. It raises 10 to the output
@@ -554,8 +545,7 @@ class cosmopower_NN(tf.keras.Model):
         """
         return 10.**self.rescaled_predictions_np(parameters_dict)
 
-
-    ### Infrastructure for network training ###
+    # Infrastructure for network training
 
     @tf.function
     def compute_loss(self, training_parameters: tf.Tensor,
@@ -701,10 +691,9 @@ class cosmopower_NN(tf.keras.Model):
 
         return accumulated_loss
 
-      
     def train(self, training_data: Sequence,
-              filename_saved_model: str, 
-              validation: Union[Sequence,float] = 0.1,
+              filename_saved_model: str,
+              validation: Union[Sequence, float] = 0.1,
               learning_rates: Sequence[float] = [1e-2, 1e-3, 1e-4, 1e-5, 1e-6],
               batch_sizes: Union[int, Sequence[int]] = 1000,
               gradient_accumulation_steps: Union[int, Sequence[int]] = 1,
@@ -734,24 +723,24 @@ class cosmopower_NN(tf.keras.Model):
                 maximum number of epochs for each step of learning schedule
         """
         from .dataset import Dataset
-        
+
         n_iter = len(learning_rates)
-        if type(batch_sizes) is not list:
+        if not isinstance(batch_sizes, list):
             batch_sizes = n_iter * [batch_sizes]
-        if type(gradient_accumulation_steps) is not list:
+        if not isinstance(gradient_accumulation_steps, list):
             gradient_accumulation_steps = (n_iter
                                            * [gradient_accumulation_steps])
-        if type(patience_values) is not list:
+        if not isinstance(patience_values, list):
             patience_values = n_iter * [patience_values]
-        if type(max_epochs) is not list:
+        if not isinstance(max_epochs, list):
             max_epochs = n_iter * [max_epochs]
 
         # check correct number of steps
         assert len(learning_rates) == len(batch_sizes) \
                == len(gradient_accumulation_steps) == len(patience_values) \
-               == len(max_epochs), "Number of learning rates, batch sizes, \
-                                    gradient accumulation steps, patience \
-                                    values and max epochs are not matching!"
+               == len(max_epochs), "Number of learning rates, batch sizes, " \
+                                   "gradient accumulation steps, patience " \
+                                   "values and max epochs are not matching!"
 
         # training start info, if verbose
         if self.verbose:
@@ -770,7 +759,7 @@ class cosmopower_NN(tf.keras.Model):
         training_features = None
 
         progress_file = open(filename_saved_model + ".progress", "w")
-        progress_file.write("# Learning step\tLearning rate\tBatch size\t" \
+        progress_file.write("# Learning step\tLearning rate\tBatch size\t"
                             "Epoch\tValidation loss\tBest loss\n")
         progress_file.flush()
 
@@ -797,7 +786,8 @@ class cosmopower_NN(tf.keras.Model):
                 training_features = np.concatenate((training_features,
                                                     features))
 
-        print(f"Found a total of {training_features.shape[0]} example spectra.")
+        print(f"Found a total of {training_features.shape[0]} example "
+              "spectra.")
 
         self.parameters_mean = np.nanmean(training_parameters, axis=0)
         self.parameters_std = np.nanstd(training_parameters, axis=0)
@@ -816,7 +806,7 @@ class cosmopower_NN(tf.keras.Model):
         self.features_std = tf.constant(self.features_std, dtype=dtype,
                                         name="features_std")
 
-        if type(validation) == float:
+        if isinstance(validation, float):
             # training/validation split
             n_samples = training_parameters.shape[0]
             n_validation = int(n_samples * validation)
@@ -827,11 +817,11 @@ class cosmopower_NN(tf.keras.Model):
                                                        dtype=dtype)
             training_features = tf.convert_to_tensor(training_features,
                                                      dtype=dtype)
-            
-            print(f"Will split each epoch into {n_training} training, " \
+
+            print(f"Will split each epoch into {n_training} training, "
                   f"and {n_validation} validation samples.")
-        elif type(validation) == list or type(validation) == Dataset:
-            if type(validation) == Dataset:
+        elif isinstance(validation, list) or isinstance(validation, Dataset):
+            if isinstance(validation, Dataset):
                 validation = [validation]
 
             n_samples = training_parameters.shape[0]
@@ -854,19 +844,19 @@ class cosmopower_NN(tf.keras.Model):
                         validation_parameters = parameters
                         validation_features = features
                     else:
-                        validation_parameters = np.concatenate((validation_parameters,
+                        validation_parameters = np.concatenate((validation_parameters,  # noqa: E501
                                                                 parameters))
-                        validation_features = np.concatenate((validation_features,
+                        validation_features = np.concatenate((validation_features,  # noqa: E501
                                                               features))
-            
-            print(f"Found a total of {validation_features.shape[0]} "\
-                   "validation spectra.")
+
+            print(f"Found a total of {validation_features.shape[0]} "
+                  "validation spectra.")
 
         # train using cooling/heating schedule for lr/batch-size
         n = 0
         for i in range(len(learning_rates)):
 
-            print(f"learning rate = {learning_rates[i]}, " \
+            print(f"learning rate = {learning_rates[i]}, "
                   f"batch size = {batch_sizes[i]}")
 
             # set learning rate
@@ -924,8 +914,8 @@ class cosmopower_NN(tf.keras.Model):
                     # update the progressbar
                     t.set_postfix(loss=vloss, stuck=early_stopping_counter)
 
-                    progress_file.write(f"{n:6d}\t{learning_rates[i]:e}\t" \
-                                        f"{batch_sizes[i]:d}\t{epoch:d}\t" \
+                    progress_file.write(f"{n:6d}\t{learning_rates[i]:e}\t"
+                                        f"{batch_sizes[i]:d}\t{epoch:d}\t"
                                         f"{vloss:e}\t{best_loss:e}\n")
                     progress_file.flush()
                     n += 1
@@ -938,10 +928,10 @@ class cosmopower_NN(tf.keras.Model):
                 self.update_emulator_parameters()
                 self.save(filename_saved_model)
                 if early_stopping_counter >= patience_values[i]:
-                    print("Model reached early stopping condition. " \
+                    print("Model reached early stopping condition. "
                           f"Validation loss = {best_loss:f}")
                 else:
-                    print("Reached max number of epochs. " \
+                    print("Reached max number of epochs. "
                           f"Validation loss = {best_loss:f}")
                 print("Model saved.")
 

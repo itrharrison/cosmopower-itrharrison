@@ -21,7 +21,6 @@ at the pre-generated emulators provided at
 framework provided here.
 """
 
-from cobaya import run
 from cobaya.yaml import yaml_load
 from cobaya.install import install
 from cobaya.model import get_model
@@ -90,65 +89,68 @@ model = get_model(model)
 
 # The best-fit values from the Planck paper.
 plik_best_fit = {
-	"ombh2" : 22.383e-3,
-	"omch2" : 12.011e-2,
-	"cosmomc_theta" : 104.0909e-4,
-	"logA" : 3.0448,
-	"ns" : 0.96605,
-	"tau" : 0.0543,
-	"A_planck": 1.0,
+    "ombh2": 22.383e-3,
+    "omch2": 12.011e-2,
+    "cosmomc_theta": 104.0909e-4,
+    "logA": 3.0448,
+    "ns": 0.96605,
+    "tau": 0.0543,
+    "A_planck": 1.0,
 }
 
 # Compute the log-posterior at best-fit.
-logpost = model.logposterior(plik_best_fit, as_dict = True)
+logpost = model.logposterior(plik_best_fit, as_dict=True)
 print(logpost)
 
 """
 Make a plot of the spectra and datapoints.
 """
-fig, axes = plt.subplots(2, 2, figsize = (12, 8), sharex = True)
+fig, axes = plt.subplots(2, 2, figsize=(12, 8), sharex=True)
 
 cl = model.provider.get_Cl(ell_factor=True)
 plik = model.likelihood["planck_2018_highl_plik.TTTEEE_lite_native"]
 
-fig.delaxes(axes[0,1])
+fig.delaxes(axes[0, 1])
 
-ax = axes[0,0]
-ax.plot(cl["ell"], cl["tt"], lw = 2, c = "C0")
+ax = axes[0, 0]
+ax.plot(cl["ell"], cl["tt"], lw=2, c="C0")
 
 lav = plik.lav[plik.used_bins[0]]
 Xvec = plik.X_data[plik.used_bins[0]] * (lav * (lav + 1)) / 2. / np.pi
-Xerr = np.sqrt(np.diag(plik.cov))[plik.used_bins[0]] * (lav * (lav + 1)) / 2. / np.pi
+Xerr = np.sqrt(np.diag(plik.cov))[plik.used_bins[0]] * \
+       (lav * (lav + 1)) / 2. / np.pi
 i0 = len(plik.used_bins[0])
 
-ax.errorbar(lav, Xvec, yerr = Xerr, c = "k", marker = ".", lw = 0, elinewidth = 1)
+ax.errorbar(lav, Xvec, yerr=Xerr, c="k", marker=".", lw=0, elinewidth=1)
 
 ax.set_xlim(0, 2508)
 ax.set_title("TT")
 
 
-ax = axes[1,0]
-ax.plot(cl["ell"], cl["te"], lw = 2, c = "C1")
+ax = axes[1, 0]
+ax.plot(cl["ell"], cl["te"], lw=2, c="C1")
 
 
 lav = plik.lav[plik.used_bins[1]]
 Xvec = plik.X_data[plik.used_bins[1] + i0] * (lav * (lav + 1)) / 2. / np.pi
-Xerr = np.sqrt(np.diag(plik.cov))[plik.used_bins[1] + i0] * (lav * (lav + 1)) / 2. / np.pi
+Xerr = np.sqrt(np.diag(plik.cov))[plik.used_bins[1] + i0] * \
+       (lav * (lav + 1)) / 2. / np.pi
 i0 = i0 + len(plik.used_bins[1])
 
-ax.errorbar(lav, Xvec, yerr = Xerr, c = "k", marker = ".", lw = 0, elinewidth = 1)
+ax.errorbar(lav, Xvec, yerr=Xerr, c="k", marker=".", lw=0, elinewidth=1)
 
 ax.set_title("TE")
 
-ax = axes[1,1]
-ax.plot(cl["ell"], cl["ee"], lw = 2, c = "C2")
+ax = axes[1, 1]
+ax.plot(cl["ell"], cl["ee"], lw=2, c="C2")
 
 lav = plik.lav[plik.used_bins[2]]
 Xvec = plik.X_data[plik.used_bins[2] + i0] * (lav * (lav + 1)) / 2. / np.pi
-Xerr = np.sqrt(np.diag(plik.cov))[plik.used_bins[2] + i0] * (lav * (lav + 1)) / 2. / np.pi
+Xerr = np.sqrt(np.diag(plik.cov))[plik.used_bins[2] + i0] * \
+       (lav * (lav + 1)) / 2. / np.pi
 i0 = i0 + len(plik.used_bins[2])
 
-ax.errorbar(lav, Xvec, yerr = Xerr, c = "k", marker = ".", lw = 0, elinewidth = 1)
+ax.errorbar(lav, Xvec, yerr=Xerr, c="k", marker=".", lw=0, elinewidth=1)
 
 ax.set_title("EE")
 

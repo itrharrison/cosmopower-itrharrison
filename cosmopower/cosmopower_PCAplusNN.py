@@ -682,7 +682,7 @@ class cosmopower_PCAplusNN(tf.keras.Model):
 
     def train(self, training_data: Sequence,
               filename_saved_model: str,
-              validation: Union[Sequence,float] = 0.1,
+              validation: Union[Sequence, float] = 0.1,
               learning_rates: Sequence[float] = [1e-2, 1e-3, 1e-4, 1e-5, 1e-6],
               batch_sizes: Union[int, Sequence[int]] = 1000,
               gradient_accumulation_steps: Union[int, Sequence[int]] = 1,
@@ -726,9 +726,9 @@ class cosmopower_PCAplusNN(tf.keras.Model):
         # check correct number of steps
         assert len(learning_rates) == len(batch_sizes) == \
                len(gradient_accumulation_steps) == len(patience_values) == \
-               len(max_epochs), "Number of learning rates, batch sizes, \
-                                 gradient accumulation steps, patience values \
-                                 and max epochs are not matching!"
+               len(max_epochs), "Number of learning rates, batch sizes, " \
+                                "gradient accumulation steps, patience " \
+                                "values and max epochs are not matching!"
 
         # training start info, if verbose
         if self.verbose:
@@ -747,7 +747,7 @@ class cosmopower_PCAplusNN(tf.keras.Model):
         training_features = None
 
         progress_file = open(filename_saved_model + ".progress", "w")
-        progress_file.write("# Learning step\tLearning rate\tBatch size\t"\
+        progress_file.write("# Learning step\tLearning rate\tBatch size\t"
                             "Epoch\tValidation loss\tBest loss\n")
         progress_file.flush()
 
@@ -832,7 +832,7 @@ class cosmopower_PCAplusNN(tf.keras.Model):
         self.features_std = tf.constant(self.cp_pca.features_std,
                                         dtype=dtype, name="features_std")
 
-        if type(validation) == float:
+        if isinstance(validation, float):
             # training/validation split
             n_samples = training_parameters.shape[0]
             n_validation = int(n_samples * validation)
@@ -846,8 +846,8 @@ class cosmopower_PCAplusNN(tf.keras.Model):
                                                        dtype=dtype)
             training_features = tf.convert_to_tensor(training_features,
                                                      dtype=dtype)
-        elif type(validation) == list or type(validation) == Dataset:
-            if type(validation) == Dataset:
+        elif isinstance(validation, list) or isinstance(validation, Dataset):
+            if isinstance(validation, Dataset):
                 validation = [validation]
 
             n_samples = training_parameters.shape[0]
@@ -874,11 +874,11 @@ class cosmopower_PCAplusNN(tf.keras.Model):
                             np.concatenate((validation_parameters, parameters))
                         validation_features = \
                             np.concatenate((validation_features, features))
-            
+
             n_validation = validation_parameters.shape[0]
-            
-            print(f"Found a total of {validation_features.shape[0]} "\
-                   "validation spectra.")
+
+            print(f"Found a total of {validation_features.shape[0]} "
+                  "validation spectra.")
 
         training_pca = self.cp_pca.PCA.transform(
             (training_features - self.cp_pca.features_mean)
@@ -886,7 +886,7 @@ class cosmopower_PCAplusNN(tf.keras.Model):
         training_parameters = tf.convert_to_tensor(training_parameters,
                                                    dtype=dtype)
         training_pca = tf.convert_to_tensor(training_pca, dtype=dtype)
-        
+
         if validation_features is not None:
             validation_parameters = tf.convert_to_tensor(validation_parameters,
                                                          dtype=dtype)
@@ -900,7 +900,7 @@ class cosmopower_PCAplusNN(tf.keras.Model):
         # train using cooling/heating schedule for lr/batch-size
         for i in range(len(learning_rates)):
 
-            print(f"learning rate = {learning_rates[i]}, " \
+            print(f"learning rate = {learning_rates[i]}, "
                   f"batch size = {batch_sizes[i]}")
 
             # set learning rate

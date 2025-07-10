@@ -1,4 +1,5 @@
 import os
+import glob
 import numpy as np
 from typing import Optional
 from .cosmopower_NN import cosmopower_NN
@@ -22,9 +23,9 @@ def train_network_NN(parser: YAMLParser, quantity: str, device: str = "",
 
     Return: The emulator if successful, or None if not.
     """
-    import glob
     filenames = glob.glob(os.path.join(parser.path, "spectra",
-                                       quantity.replace("/", "_") + ".[0-9].hdf5"))
+                                       quantity.replace("/", "_")
+                                       + ".[0-9].hdf5"))
 
     if len(filenames) == 0:
         raise IOError(f"No files found to train quantity {quantity} with.")
@@ -48,18 +49,18 @@ def train_network_NN(parser: YAMLParser, quantity: str, device: str = "",
     datasets = [Dataset(parser, quantity, os.path.basename(filename))
                 for filename in filenames]
     training_params = parser.network_training_parameters(quantity)
-    
+
     if (validation := training_params.get("validation_split", None)):
         training_params.pop("validation_split")
     else:
         filenames = glob.glob(os.path.join(parser.path, "spectra",
-                                           quantity.replace("/", "_") + \
+                                           quantity.replace("/", "_") +
                                            ".validation.[0-9].hdf5"))
         validation = [Dataset(parser, quantity, os.path.basename(filename))
                       for filename in filenames]
-        
+
         if len(validation) == 0:
-            print(f"No validation data found? Defaulting to 10% split.")
+            print("No validation data found? Defaulting to 10% split.")
             validation = 0.1
 
     with tf.device(device):
@@ -82,9 +83,9 @@ def train_network_PCAplusNN(parser: YAMLParser, quantity: str,
 
     Return: whether or not the training was successful.
     """
-    import glob
     filenames = glob.glob(os.path.join(parser.path, "spectra",
-                                       quantity.replace("/", "_") + ".[0-9].hdf5"))
+                                       quantity.replace("/", "_")
+                                       + ".[0-9].hdf5"))
 
     saved_filename = os.path.join(parser.path, "networks",
                                   parser.network_filename(quantity))
@@ -104,18 +105,18 @@ def train_network_PCAplusNN(parser: YAMLParser, quantity: str,
     n_pcas = settings.get("p_traits").get("n_pcas")
     n_batches = settings.get("p_traits").get("n_batches", 2)
     modes = parser.modes(quantity)
-    
+
     if (validation := training_params.get("validation_split", None)):
         training_params.pop("validation_split")
     else:
         filenames = glob.glob(os.path.join(parser.path, "spectra",
-                                           quantity.replace("/", "_") + \
+                                           quantity.replace("/", "_") +
                                            ".validation.[0-9].hdf5"))
         validation = [Dataset(parser, quantity, os.path.basename(filename))
                       for filename in filenames]
-        
+
         if len(validation) == 0:
-            print(f"No validation data found? Defaulting to 10% split.")
+            print("No validation data found? Defaulting to 10% split.")
             validation = 0.1
 
     cp_pca = cosmopower_PCA(parameters=parameters, modes=modes, n_pcas=n_pcas,
@@ -168,7 +169,9 @@ def show_training(args: Optional[list] = None) -> None:
     fig, axes = plt.subplots(ny, nx, figsize=(12, 8))
 
     for n, quantity in enumerate(plot_quantities):
-        filenames = find_files(parser, quantity)
+        filenames = glob.glob(os.path.join(parser.path, "spectra",
+                                           quantity.replace("/", "_")
+                                           + ".[0-9].hdf5"))
 
         if len(filenames) == 0:
             raise IOError(f"No files found for {quantity}.")
@@ -268,7 +271,9 @@ def show_validation(args: Optional[list] = None) -> None:
         if quantity == "derived":
             continue
 
-        filenames = find_files(parser, quantity)
+        filenames = glob.glob(os.path.join(parser.path, "spectra",
+                                           quantity.replace("/", "_")
+                                           + ".validation.[0-9].hdf5"))
 
         if len(filenames) == 0:
             raise IOError(f"No files found for {quantity}.")
@@ -417,14 +422,14 @@ def show_validation(args: Optional[list] = None) -> None:
 
         if i == 0:
             if args.noise_curve == "CVL":
-                ax.set_ylabel(r"$\Delta C_\ell \, / \, \
-                                \sigma_{C_\ell,\mathrm{CVL}}$")
+                ax.set_ylabel(r"$\Delta C_\ell \, / \,"
+                              r"\sigma_{C_\ell,\mathrm{CVL}}$")
             elif args.noise_curve == "SO":
-                ax.set_ylabel(r"$\Delta C_\ell \, / \, \
-                                \sigma_{C_\ell,\mathrm{SO}}$")
+                ax.set_ylabel(r"$\Delta C_\ell \, / \,"
+                              r"\sigma_{C_\ell,\mathrm{SO}}$")
             else:
-                ax.set_ylabel(r"$\Delta C_\ell \, / \, \
-                                C_\ell^\mathrm{theory}$")
+                ax.set_ylabel(r"$\Delta C_\ell \, / \,"
+                              r"C_\ell^\mathrm{theory}$")
                 ax.set_yticklabels([f"{x:,.1%}" for x in ax.get_yticks()])
 
     # Delete unused plots
@@ -457,7 +462,8 @@ def show_validation(args: Optional[list] = None) -> None:
         nx = int(np.sqrt(len(parser.computed_parameters)))
         ny = (len(parser.computed_parameters) // nx)
 
-        filenames = find_files(parser, "derived")
+        filenames = glob.glob(os.path.join(parser.path, "spectra",
+                                           "derived.[0-9].hdf5"))
 
         if len(filenames) == 0:
             raise IOError("No files found for derived parameters.")
@@ -504,8 +510,8 @@ def show_validation(args: Optional[list] = None) -> None:
 
         ax.boxplot(diff, conf_intervals=conf)
         ax.axhline(0.0, c="r", lw=1, ls="--")
-        ax.set_ylabel(r"$( x_\mathrm{pred} - x_\mathrm{true} ) \, / \, \
-                        x_\mathrm{true}$")
+        ax.set_ylabel(r"$( x_\mathrm{pred} - x_\mathrm{true} ) \, / \,"
+                      r"x_\mathrm{true}$")
         ax.set_yticklabels([f"{x:,.1%}" for x in ax.get_yticks()])
 
         ax = axes[1]
@@ -524,8 +530,8 @@ def show_validation(args: Optional[list] = None) -> None:
                    lw=1)
 
         ax.semilogy()
-        ax.set_ylabel(r"$| x_\mathrm{pred} - x_\mathrm{true} | \, / \, \
-                        x_\mathrm{true}$")
+        ax.set_ylabel(r"$| x_\mathrm{pred} - x_\mathrm{true} | \, / \,"
+                      r"x_\mathrm{true}$")
 
         ax.set_xticks(1 + np.arange(len(parser.computed_parameters)))
         ax.set_xticklabels(parser.computed_parameters)
@@ -547,7 +553,7 @@ def train_networks(args: Optional[list] = None) -> None:
     # Parse the command line arguments.
     import argparse
     argp = argparse.ArgumentParser(prog="cosmopower train",
-                                   description="Train a cosmopower network" \
+                                   description="Train a cosmopower network "
                                                "from generated spectra.")
     argp.add_argument("yamlfile", type=str, help="The .yaml file to parse.")
     argp.add_argument("-d", "--dir", dest="root_dir", type=str,
@@ -557,13 +563,13 @@ def train_networks(args: Optional[list] = None) -> None:
     argp.add_argument("-c", "--cpu", dest="use_cpu", action="store_true",
                       help="Force the usage of a CPU.")
     argp.add_argument("-f", "--force", dest="force", action="store_true",
-                      help="If set, overwrite existing networks (skip" \
+                      help="If set, overwrite existing networks (skip "
                            "already existing networks if not).")
     argp.add_argument("-q", "--quantity", dest="quantities", type=str,
-                      default=None, help="A list of comma-separated" \
-                                         "quantities that you want to train." \
-                                         "If not set, all quantities will be" \
-                                         "trained. Example: `-q Cl/tt,Cl/te`" \
+                      default=None, help="A list of comma-separated "
+                                         "quantities that you want to train. "
+                                         "If not set, all quantities will be "
+                                         "trained. Example: `-q Cl/tt,Cl/te` "
                                          "will train only Cl/tt and Cl/te.")
 
     args = argp.parse_args(args)
@@ -598,5 +604,5 @@ def train_networks(args: Optional[list] = None) -> None:
             train_network_PCAplusNN(parser, quantity, device=device_name,
                                     overwrite=args.force)
         else:
-            raise ValueError(f"Unknown network type '{network_type}' [should" \
-                              "be of NN or PCAplusNN type].")
+            raise ValueError(f"Unknown network type '{network_type}' [should "
+                             "be of NN or PCAplusNN type].")

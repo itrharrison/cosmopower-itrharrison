@@ -5,7 +5,6 @@ import os
 import sys
 import tqdm
 import numpy as np
-import h5py
 from importlib import import_module
 from typing import Optional, Tuple
 from types import ModuleType
@@ -105,7 +104,9 @@ def cycle_spectrum_file(parser: YAMLParser, quantity: str,
       can contain spectra for quantity.
     If the resulting file does not exist, it will automatically create one.
     """
-    if suffix != "": suffix = "." + suffix
+    if suffix != "":
+        suffix = "." + suffix
+
     if fp is None:
         dataset = Dataset(parser, quantity,
                           quantity.replace("/", "_") + f"{suffix}.{n}.hdf5")
@@ -135,7 +136,7 @@ def split_samples(MPI: Optional[ModuleType], parser: YAMLParser, samples: dict,
         rank = 0
         n_tot = 1
         Barrier = lambda: -1  # noqa E731
-    
+
     first = 0
     last = nsamples-1
     first_file = 0
@@ -158,7 +159,7 @@ def split_samples(MPI: Optional[ModuleType], parser: YAMLParser, samples: dict,
 def check_open_files(parser: YAMLParser, files: dict, n: int,
                      first_file: int, suffix: str = "") -> Tuple[dict, list]:
     quantities_to_be_computed = []
-    
+
     for q in parser.quantities:
         if files[q] is None:
             # Open first file to read from.
@@ -171,7 +172,7 @@ def check_open_files(parser: YAMLParser, files: dict, n: int,
 
         if n not in files[q].indices:
             quantities_to_be_computed.append(q)
-    
+
     return files, quantities_to_be_computed
 
 
@@ -215,13 +216,11 @@ def generate_spectra(args: list = None) -> None:
         from mpi4py import MPI
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
-        n_tot = comm.Get_size()
         Barrier = comm.Barrier
     except:  # noqa E722
         MPI = None
         comm = None
         rank = 0
-        n_tot = 1
         Barrier = lambda: -1  # noqa E731
 
     Barrier()
@@ -248,12 +247,12 @@ def generate_spectra(args: list = None) -> None:
     else:
         training, validation, testing = None, None, None
 
-    ### TODO: This is the same code three times and should be made a lot
-    #         cleaner!
+    # TODO: This is the same code three times and should be made a lot
+    #       cleaner!
     training, first, last, first_file, last_file = \
         split_samples(MPI, parser, training, parser.ntraining)
 
-    print(f"[{rank}]: Iterating over training samples {first}--{last} in " \
+    print(f"[{rank}]: Iterating over training samples {first}--{last} in "
           f"files {first_file}--{last_file}.")
 
     state = init_boltzmann_code(parser)
@@ -318,15 +317,15 @@ def generate_spectra(args: list = None) -> None:
     if validation == {} and testing == {}:
         if rank == 0:
             print(f"Finished generating {accepted} spectra.")
-            print(f"You can now run\n\tcosmopower train {args.yamlfile}\n" \
-                   "to train the networks on this dataset.")
+            print(f"You can now run\n\tcosmopower train {args.yamlfile}\n"
+                  f"to train the networks on this dataset.")
             return
-    
+
     # Do the exact same thing all over again, but for validation samples.
     validation, first, last, first_file, last_file = \
         split_samples(MPI, parser, validation, parser.nvalidation)
 
-    print(f"[{rank}]: Iterating over validation samples {first}--{last} in " \
+    print(f"[{rank}]: Iterating over validation samples {first}--{last} in "
           f"files {first_file}--{last_file}.")
 
     accepted = 0
@@ -393,7 +392,7 @@ def generate_spectra(args: list = None) -> None:
     testing, first, last, first_file, last_file = \
         split_samples(MPI, parser, testing, parser.ntesting)
 
-    print(f"[{rank}]: Iterating over testing samples {first}--{last} in " \
+    print(f"[{rank}]: Iterating over testing samples {first}--{last} in "
           f"files {first_file}--{last_file}.")
 
     accepted = 0

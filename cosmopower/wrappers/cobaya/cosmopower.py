@@ -265,7 +265,6 @@ class CosmoPower(BoltzmannBase):
             cls[k] = np.tile(np.nan, cls["ell"].shape)
 
         for k in cls_old["Cl"]:
-            # TODO: check for ell factor.
             prefac = np.ones_like(ls).astype(float)
             if self.parser.settings(f"Cl/{k}").get("ell_factor", True):
                 prefac /= cp.util.ell_factor(ls, k)

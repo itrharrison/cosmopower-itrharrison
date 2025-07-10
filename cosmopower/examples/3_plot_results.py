@@ -64,7 +64,7 @@ with Dataset(parser, "Pk/lin", "Pk_lin.testing.0.hdf5") as dataset:
 
 print(params)
 print(pk.shape)
-prediction = pk_lin_emu.ten_to_predictions_np(params)[0,:]
+prediction = pk_lin_emu.ten_to_predictions_np(params)[0, :]
 print(prediction.shape)
 example = 10. ** pk
 

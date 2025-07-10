@@ -2,6 +2,7 @@
 
 # Author: A. Spurio Mancini, H. T. Jense
 
+import tqdm
 import numpy as np
 from cosmopower.parser import YAMLParser
 from cosmopower.spectra import init_boltzmann_code, get_boltzmann_spectra

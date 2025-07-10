@@ -6,6 +6,7 @@ import sys
 from types import ModuleType
 from typing import Sequence
 import warnings
+import camb
 
 
 def initialize(parser: YAMLParser, extra_args: dict = {}) -> dict:
@@ -15,7 +16,6 @@ def initialize(parser: YAMLParser, extra_args: dict = {}) -> dict:
     if parser.boltzmann_path is not None:
         sys.path.insert(0, parser.boltzmann_path)
 
-    import camb
     from packaging.version import parse as vparse
 
     if parser.boltzmann_version:
@@ -25,13 +25,13 @@ def initialize(parser: YAMLParser, extra_args: dict = {}) -> dict:
         if version_desired != version_received:
             if version_desired.major == version_received.major and \
                version_desired.minor == version_received.minor:
-                warnings.warn(f"Different camb version: camb version \
-                                {version_desired} was requested, but you imported \
-                                version {version_received}.")
+                warnings.warn(f"Different camb version: camb version "
+                              f"{version_desired} was requested, but you "
+                              f"imported version {version_received}.")
             else:
-                raise ImportError(f"Incompatible camb version: camb version \
-                                    {version_desired} was requested, but you \
-                                    imported version {version_received}.")
+                raise ImportError(f"Incompatible camb version: camb version "
+                                  f"{version_desired} was requested, but "
+                                  f"you imported version {version_received}.")
 
     res = {}
 
